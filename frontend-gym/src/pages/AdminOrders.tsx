@@ -1,0 +1,780 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { 
+  Search, 
+  ChevronRight, 
+  Package, 
+  User, 
+  MapPin, 
+  Calendar, 
+  Clock, 
+  CheckCircle2, 
+  Truck, 
+  AlertCircle,
+  X,
+  Eye,
+  Trash2,
+  Edit,
+  Plus,
+  LayoutDashboard,
+  Users,
+  MessageSquare,
+  Settings,
+  LogOut,
+  Bell,
+  ChevronDown,
+  ArrowUpRight,
+  FileText,
+  Tag,
+  PieChart,
+  Phone,
+  Mail
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Order, OrderItem, Customer } from '../types';
+import { orderAPI, customerAPI } from '../api';
+import { useAuth } from '../AuthContext';
+import { Navigate, Link } from 'react-router-dom';
+
+const STATUS_COLORS = {
+  pending: 'bg-gray-50 text-gray-600 border-gray-100',
+  processing: 'bg-gray-100 text-gray-800 border-gray-200',
+  shipped: 'bg-black text-white border-black',
+  delivered: 'bg-black text-white border-black',
+  cancelled: 'bg-red-50 text-red-600 border-red-100',
+};
+
+const STATUS_LABELS = {
+  pending: 'Chờ thanh toán',
+  processing: 'Đang xử lý',
+  shipped: 'Đang giao hàng',
+  delivered: 'Đã giao hàng',
+  cancelled: 'Đã hủy',
+};
+
+export const AdminOrders = () => {
+  const { user, isAdmin, logout } = useAuth();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [isAddOrderOpen, setIsAddOrderOpen] = useState(false);
+
+  const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [allSkus, setAllSkus] = useState<any[]>([]);
+
+  // New Order Form State
+  const [newOrderForm, setNewOrderForm] = useState<{
+    customerId: number | '';
+    selectedSkuId: number | '';
+    items: { sku_id: number; quantity: number; price: number }[];
+  }>({
+    customerId: '',
+    selectedSkuId: '',
+    items: []
+  });
+
+  // Fetch data from API on mount
+  useEffect(() => {
+    orderAPI.getAll().then(setOrders).catch(() => {});
+    customerAPI.getAll().then(setCustomers).catch(() => {});
+    fetch('http://localhost:5000/api/allProducts').then(r => r.json()).then(setAllProducts).catch(() => {});
+    fetch('http://localhost:5000/api/product-skus').then(r => r.json()).then(setAllSkus).catch(() => {});
+  }, []);
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter(order => {
+      const matchesSearch = 
+        order.order_id.toString().includes(searchQuery) ||
+        (order.customer_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.shipping_address.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [orders, searchQuery, statusFilter]);
+
+  const handleStatusChange = async (orderId: number, newStatus: Order['status']) => {
+    try {
+      await orderAPI.updateStatus(orderId, newStatus);
+      const updated = await orderAPI.getAll();
+      setOrders(updated);
+    } catch (err) {
+      alert('Lỗi khi cập nhật trạng thái');
+    }
+  };
+
+  const getOrderItems = (orderId: number): any[] => {
+    const order = orders.find(o => o.order_id === orderId);
+    return order?.items || [];
+  };
+
+  if (!isAdmin) {
+    return <Navigate to="/account" />;
+  }
+
+  const handleDelete = async (id: number) => {
+    if (confirm('Bạn có chắc chắn muốn xóa đơn hàng này?')) {
+      try {
+        await orderAPI.delete(id);
+        const updated = await orderAPI.getAll();
+        setOrders(updated);
+        if (selectedOrderId === id) setSelectedOrderId(null);
+      } catch {
+        alert('Lỗi khi xóa đơn hàng');
+      }
+    }
+  };
+
+  const activeOrder = orders.find(o => o.order_id === selectedOrderId);
+
+  return (
+    <div className="min-h-screen bg-white flex font-sans">
+      {/* Sidebar - Brand Dark Style */}
+      <aside className="w-64 bg-brand-dark text-white flex flex-col sticky top-0 h-screen hidden lg:flex">
+        <div className="h-20 px-8 border-b border-white/5 flex items-center">
+          <Link to="/" className="text-2xl font-black tracking-tighter uppercase whitespace-nowrap">FitGear Admin</Link>
+        </div>
+        
+        <nav className="flex-1 mt-8 px-4 space-y-2">
+          {[
+            { icon: FileText, label: 'Đơn hàng', path: '/admin/orders', active: true },
+            { icon: Tag, label: 'Sản phẩm', path: '/admin/products', active: false },
+            { icon: Users, label: 'Khách hàng', path: '/admin/customers', active: false },
+            { icon: PieChart, label: 'Báo cáo', path: '#', active: false },
+          ].map((item) => (
+            <Link
+              key={item.label}
+              to={item.path}
+              className={`flex items-center gap-4 px-4 py-4 rounded transition-all group ${
+                item.active 
+                  ? 'bg-white text-brand-dark font-black' 
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <item.icon size={20} />
+              <span className="text-[11px] font-black uppercase tracking-widest">{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+
+        <div className="p-6 border-t border-white/5">
+          <Link 
+            to="/"
+            className="flex items-center gap-4 px-4 py-3 text-gray-500 hover:text-white transition-[]"
+          >
+            <LogOut size={20} />
+            <span className="text-[11px] font-black uppercase tracking-widest">Rời đi</span>
+          </Link>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-w-0 bg-[#F5F5F5]">
+        {/* Header */}
+        <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-10 sticky top-0 z-30">
+          <div className="flex items-center gap-4">
+             {/* Breadcrumbs removed */}
+          </div>
+          <div className="flex items-center gap-6">
+             <div className="text-right hidden md:block">
+               <p className="text-xs font-black uppercase tracking-tighter leading-none">{user?.name}</p>
+               <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Super Admin</p>
+             </div>
+             <div className="w-10 h-10 bg-brand-dark rounded-full flex items-center justify-center text-white font-black text-xs uppercase shadow-lg shadow-black/20">
+               {user?.name.substring(0, 2).toUpperCase()}
+             </div>
+          </div>
+        </header>
+
+        <div className="p-10">
+          {!isAddOrderOpen ? (
+            <>
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                <div>
+                  <h1 className="text-[46px] font-black uppercase tracking-tighter text-brand-dark leading-none">Quản lý Đơn hàng</h1>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-4">Tổng số {orders.length} đơn hàng đã đăng ký</p>
+                </div>
+                <button 
+                  onClick={() => setIsAddOrderOpen(true)}
+                  className="bg-brand-dark hover:scale-[1.02] active:scale-[0.98] text-white px-8 py-4 rounded-full flex items-center gap-3 text-[11px] font-black uppercase tracking-widest transition-all shadow-xl shadow-black/10"
+                >
+                  <Plus size={18} /> Tạo đơn hàng mới
+                </button>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                {/* Tabs Filter */}
+                <div className="flex border-b border-gray-100 px-6 overflow-x-auto scrollbar-hide">
+                  {[
+                    { id: 'all', label: 'Tất cả' },
+                    { id: 'pending', label: 'Chờ thanh toán' },
+                    { id: 'shipping', label: 'Đang giao hàng' },
+                    { id: 'delivered', label: 'Hoàn thành' },
+                    { id: 'cancelled', label: 'Đã hủy' },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setStatusFilter(tab.id as any)}
+                      className={`px-4 py-4 text-sm font-black uppercase tracking-widest transition-all relative min-w-fit ${
+                        statusFilter === tab.id 
+                          ? 'text-brand-dark border-b-2 border-brand-dark' 
+                          : 'text-gray-400 hover:text-brand-dark'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Search Bar Area */}
+                <div className="p-6 flex flex-wrap gap-4 items-center bg-gray-50/10">
+                  <div className="flex-1 max-w-sm relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input 
+                      type="text" 
+                      placeholder="Tìm mã đơn hàng..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-white border border-gray-200 py-2 pl-10 pr-4 rounded-md text-sm outline-none focus:border-brand-dark transition-all shadow-sm"
+                    />
+                  </div>
+                  <button className="bg-brand-dark border border-brand-dark px-6 py-2 rounded-md text-xs font-black uppercase tracking-widest text-white hover:bg-black/80 shadow-sm transition-[]">
+                    Tìm kiếm
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[1000px]">
+                    <thead className="bg-[#F8F9FA]">
+                      <tr>
+                        <th className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100">Mã ĐH</th>
+                        <th className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100">Ngày tạo</th>
+                        <th className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100">Khách hàng</th>
+                        <th className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100 text-right">Tổng tiền</th>
+                        <th className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100 text-center">Trạng thái</th>
+                        <th className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100 text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {filteredOrders.length > 0 ? filteredOrders.map((order) => {
+                        return (
+                          <tr key={order.order_id} className="hover:bg-gray-50/80 transition-[] group">
+                            <td className="px-6 py-4 border-b border-gray-50">
+                              <button 
+                                onClick={() => setSelectedOrderId(order.order_id)}
+                                className="text-sm font-black text-brand-dark hover:underline uppercase tracking-tight"
+                              >
+                                #{order.order_id}
+                              </button>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-50">
+                              <p className="text-sm font-bold text-gray-400 capitalize">{new Date(order.order_date).toLocaleString('vi-VN')}</p>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-50">
+                              <p className="text-sm font-black text-brand-dark uppercase tracking-tight">{order.customer_name || ''}</p>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-50 text-right">
+                              <p className="text-sm font-black text-gray-900">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.total_amount)}</p>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-50 text-center">
+                              <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${
+                                order.status === 'delivered' ? 'bg-black text-white border-black' :
+                                order.status === 'pending' ? 'bg-gray-100 text-gray-600 border-gray-200' :
+                                order.status === 'cancelled' ? 'bg-red-50 text-red-600 border-red-100' :
+                                order.status === 'shipped' ? 'bg-gray-800 text-white border-gray-800' :
+                                'bg-white text-gray-600 border-gray-200'
+                              }`}>
+                                {STATUS_LABELS[order.status]}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 border-b border-gray-50 text-right">
+                              <div className="flex items-center justify-end gap-3 text-gray-400">
+                                 <button className="p-2 hover:bg-black hover:text-white rounded-lg transition-all" title="Chỉnh sửa"><Edit size={16} /></button>
+                                 <button 
+                                  onClick={() => handleDelete(order.order_id)} 
+                                  className="p-2 hover:bg-red-600 hover:text-white rounded-lg transition-all" 
+                                  title="Xóa"
+                                 >
+                                    <Trash2 size={16} />
+                                 </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }) : (
+                        <tr>
+                          <td colSpan={6} className="px-8 py-20 text-center text-gray-400 text-sm">
+                            Không tìm thấy đơn hàng nào
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination Mockup */}
+                <div className="px-8 py-6 flex items-center justify-between border-t border-gray-50 bg-gray-50/20">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Đang hiển thị 1 đến {filteredOrders.length} của {orders.length} đơn hàng</p>
+                  <div className="flex items-center gap-2">
+                    <button className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-brand-dark transition-[]">Trước</button>
+                    {[1, 2, 3].map(i => (
+                      <button key={i} className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${i === 1 ? 'bg-brand-dark text-white shadow-md shadow-black/10' : 'text-gray-400 hover:bg-white hover:text-brand-dark'}`}>{i}</button>
+                    ))}
+                    <button className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-brand-dark transition-[]">Sau</button>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="max-w-6xl mx-auto">
+              {/* Sub Title */}
+              <div className="flex items-center gap-4 mb-10">
+                <button onClick={() => setIsAddOrderOpen(false)} className="text-brand-dark hover:translate-x-[-4px] transition-transform">
+                  <ChevronRight size={32} className="rotate-180" />
+                </button>
+                <h1 className="text-[34px] font-black uppercase tracking-tighter text-brand-dark leading-none">Tạo đơn hàng mới</h1>
+              </div>
+
+              <div className="space-y-8">
+                {/* Customer Info Section */}
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="px-10 py-6 border-b border-gray-50 flex items-center gap-4">
+                    <div className="w-10 h-10 bg-brand-dark rounded-full flex items-center justify-center text-white shadow-lg shadow-black/10">
+                      <User size={18} />
+                    </div>
+                    <h3 className="text-[9px] font-black uppercase tracking-widest text-brand-dark">Thông tin khách hàng</h3>
+                  </div>
+                  
+                  <div className="p-10">
+                    <div className="max-w-xl">
+                      <label className="block text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4">Lựa chọn khách hàng</label>
+                      <div className="relative">
+                        <select 
+                          value={newOrderForm.customerId}
+                          onChange={(e) => setNewOrderForm({ ...newOrderForm, customerId: e.target.value ? parseInt(e.target.value) : '' })}
+                          className="w-full bg-[#F5F5F5] border-none py-4 px-6 rounded-2xl text-[11px] font-bold uppercase tracking-widest outline-none focus:ring-2 focus:ring-black/5 transition-all appearance-none cursor-pointer"
+                          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1.5rem center', backgroundSize: '1.25rem' }}
+                        >
+                          <option value="">-- Chọn khách hàng --</option>
+                          {customers.map(c => (
+                            <option key={c.customer_id} value={c.customer_id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <AnimatePresence>
+                        {newOrderForm.customerId && (
+                          <motion.div 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mt-8 p-8 bg-brand-light/50 rounded-3xl space-y-4 border border-brand-light/50"
+                          >
+                            <div className="flex flex-wrap gap-8">
+                              <div className="space-y-1">
+                                <p className="text-[9px] font-black uppercase text-gray-400 tracking-widest flex items-center gap-2">
+                                  <Phone size={12} className="text-brand-dark" /> Số điện thoại
+                                </p>
+                                <p className="text-[11px] font-black text-brand-dark">{customers.find(c => c.customer_id === newOrderForm.customerId)?.phone || '090-XXX-XXXX'}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[9px] font-black uppercase text-gray-400 tracking-widest flex items-center gap-2">
+                                  <Mail size={12} className="text-brand-dark" /> Email
+                                </p>
+                                <p className="text-[11px] font-black text-brand-dark lowercase">{customers.find(c => c.customer_id === newOrderForm.customerId)?.email}</p>
+                              </div>
+                              <div className="flex-1 min-w-full md:min-w-0 space-y-1">
+                                <p className="text-[9px] font-black uppercase text-gray-400 tracking-widest flex items-center gap-2">
+                                  <MapPin size={12} className="text-brand-dark" /> Địa chỉ giao hàng
+                                </p>
+                                <p className="text-[11px] font-black text-brand-dark uppercase tracking-tight">{customers.find(c => c.customer_id === newOrderForm.customerId)?.address}</p>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Product Info Section */}
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="px-10 py-6 border-b border-gray-50 flex items-center gap-4">
+                    <div className="w-10 h-10 bg-brand-dark rounded-full flex items-center justify-center text-white shadow-lg shadow-black/10">
+                      <Package size={18} />
+                    </div>
+                    <h3 className="text-[9px] font-black uppercase tracking-widest text-brand-dark">Thông tin sản phẩm</h3>
+                  </div>
+                  
+                  <div className="p-10">
+                    <div className="flex flex-col md:flex-row gap-6 mb-10">
+                      <div className="flex-1 relative">
+                        <select 
+                          value={newOrderForm.selectedSkuId}
+                          onChange={(e) => setNewOrderForm({ ...newOrderForm, selectedSkuId: e.target.value ? parseInt(e.target.value) : '' })}
+                          className="w-full bg-[#F5F5F5] border-none py-4 px-6 rounded-2xl text-[11px] font-bold uppercase tracking-widest outline-none focus:ring-2 focus:ring-black/5 transition-all appearance-none cursor-pointer"
+                          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1.5rem center', backgroundSize: '1.25rem' }}
+                        >
+                          <option value="">-- Chọn sản phẩm --</option>
+                          {allSkus.map(sku => {
+                            const product = allProducts.find(p => p.product_id === sku.product_id);
+                            return (
+                              <option key={sku.sku_id} value={sku.sku_id}>
+                                {product?.name || sku.product_name || `SP#${sku.product_id}`} ({sku.size_name || 'N/A'} / {sku.color_name || 'N/A'})
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          if (!newOrderForm.selectedSkuId) return;
+                          const sku = allSkus.find(s => s.sku_id === newOrderForm.selectedSkuId);
+                          if (!sku) return;
+                          
+                          const existingItemIdx = newOrderForm.items.findIndex(item => item.sku_id === sku.sku_id);
+                          if (existingItemIdx > -1) {
+                            const newItems = [...newOrderForm.items];
+                            newItems[existingItemIdx].quantity += 1;
+                            setNewOrderForm({ ...newOrderForm, items: newItems });
+                          } else {
+                            setNewOrderForm({ 
+                              ...newOrderForm, 
+                              items: [...newOrderForm.items, { sku_id: sku.sku_id, quantity: 1, price: sku.price }] 
+                            });
+                          }
+                        }}
+                        className="bg-brand-dark hover:scale-[1.02] active:scale-[0.98] text-white px-10 py-4 rounded-2xl flex items-center justify-center gap-3 text-[11px] font-black uppercase tracking-widest transition-all shadow-xl shadow-black/10 h-[56px] min-w-fit"
+                      >
+                        <Plus size={18} /> Chọn
+                      </button>
+                    </div>
+
+                    <AnimatePresence>
+                      {newOrderForm.selectedSkuId && (
+                        <motion.div 
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="mb-10 p-8 bg-gray-50 rounded-3xl border border-gray-100 flex flex-wrap gap-10"
+                        >
+                          <div className="space-y-1">
+                            <p className="text-[9px] font-black uppercase text-gray-400 tracking-widest flex items-center gap-2">
+                              <Tag size={12} className="text-brand-dark" /> Giá niêm yết
+                            </p>
+                            <p className="text-[14px] font-black text-brand-dark">
+                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(allSkus.find(s => s.sku_id === newOrderForm.selectedSkuId)?.price || 0)}
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[9px] font-black uppercase text-gray-400 tracking-widest flex items-center gap-2">
+                              <Package size={12} className="text-brand-dark" /> Trạng thái kho
+                            </p>
+                            <p className="text-[11px] font-black text-brand-dark uppercase tracking-widest">
+                              Còn {allSkus.find(s => s.sku_id === newOrderForm.selectedSkuId)?.stock || 100} sản phẩm
+                            </p>
+                          </div>
+                          <div className="flex-1 min-w-full lg:min-w-0 space-y-1">
+                            <p className="text-[9px] font-black uppercase text-gray-400 tracking-widest flex items-center gap-2">
+                              <AlertCircle size={12} className="text-brand-dark" /> Đặc điểm sản phẩm
+                            </p>
+                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight italic">
+                              {allProducts.find(p => p.product_id === allSkus.find(s => s.sku_id === newOrderForm.selectedSkuId)?.product_id)?.description || 'Sản phẩm cao cấp FitGear với chất liệu thoáng khí.'}
+                            </p>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Items Table */}
+                    <div className="border border-gray-50 rounded-3xl overflow-hidden">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50/50">
+                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">STT</th>
+                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">Tên sản phẩm</th>
+                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 text-center">Số lượng</th>
+                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 text-right">Đơn giá</th>
+                            <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 text-right">Thành tiền</th>
+                            <th className="px-8 py-5"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {newOrderForm.items.length > 0 ? newOrderForm.items.map((item, idx) => {
+                            const sku = allSkus.find(s => s.sku_id === item.sku_id);
+                            const product = allProducts.find(p => p.product_id === sku?.product_id);
+                            return (
+                              <tr key={item.sku_id} className="bg-white hover:bg-gray-50/50 transition-[] group">
+                                <td className="px-8 py-5">
+                                  <span className="text-[10px] font-black text-gray-300">#{idx + 1}</span>
+                                </td>
+                                <td className="px-8 py-5">
+                                  <div className="flex items-center gap-3">
+                                    <div>
+                                      <p className="text-[11px] font-black uppercase tracking-tight text-brand-dark">{product?.name}</p>
+                                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">Size: {sku?.size_name || 'N/A'} / {sku?.color_name || 'N/A'}</p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-8 py-5">
+                                  <div className="flex items-center justify-center">
+                                    <div className="flex items-center bg-gray-100 rounded-xl px-2 h-10 w-24">
+                                      <button 
+                                        onClick={() => {
+                                          if (item.quantity <= 1) return;
+                                          const newItems = [...newOrderForm.items];
+                                          newItems[idx].quantity -= 1;
+                                          setNewOrderForm({ ...newOrderForm, items: newItems });
+                                        }}
+                                        className="p-2 text-gray-400 hover:text-brand-dark transition-[]"
+                                      >-</button>
+                                      <input 
+                                        type="number" 
+                                        value={item.quantity} 
+                                        onChange={(e) => {
+                                          const val = parseInt(e.target.value);
+                                          if (val < 1) return;
+                                          const newItems = [...newOrderForm.items];
+                                          newItems[idx].quantity = val;
+                                          setNewOrderForm({ ...newOrderForm, items: newItems });
+                                        }}
+                                        className="bg-transparent border-none w-full text-center text-xs font-black outline-none"
+                                      />
+                                      <button 
+                                        onClick={() => {
+                                          const newItems = [...newOrderForm.items];
+                                          newItems[idx].quantity += 1;
+                                          setNewOrderForm({ ...newOrderForm, items: newItems });
+                                        }}
+                                        className="p-2 text-gray-400 hover:text-brand-dark transition-[]"
+                                      >+</button>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-8 py-5 text-right">
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.price)}
+                                  </span>
+                                </td>
+                                <td className="px-8 py-5 text-right">
+                                  <span className="text-xs font-black tracking-tight text-brand-dark">
+                                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.price * item.quantity)}
+                                  </span>
+                                </td>
+                                <td className="px-8 py-5 text-right">
+                                  <button 
+                                    onClick={() => {
+                                      const newItems = newOrderForm.items.filter((_, i) => i !== idx);
+                                      setNewOrderForm({ ...newOrderForm, items: newItems });
+                                    }}
+                                    className="p-2 text-gray-300 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          }) : (
+                            <tr>
+                              <td colSpan={6} className="px-8 py-20 text-center text-gray-400 text-xs font-bold uppercase tracking-widest italic bg-gray-50/20">
+                                Chưa có sản phẩm nào được chọn
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="mt-10 flex flex-col items-end gap-2 border-t border-gray-50 pt-10">
+                      <div className="flex items-center gap-10">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Tổng số lượng sản phẩm:</span>
+                        <span className="text-sm font-black text-brand-dark">{newOrderForm.items.reduce((acc, item) => acc + item.quantity, 0)}</span>
+                      </div>
+                      <div className="flex items-center gap-10 mt-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-brand-dark">Tổng khách phải trả:</span>
+                        <span className="text-4xl font-black text-red-600 tracking-tighter">
+                           {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+                             newOrderForm.items.reduce((acc, item) => acc + (item.price * item.quantity), 0)
+                           )}
+                        </span>
+                      </div>
+                      <div className="mt-10 w-full md:w-fit flex gap-4">
+                         <button 
+                          onClick={() => setIsAddOrderOpen(false)}
+                          className="bg-white border-2 border-gray-100 text-gray-400 hover:bg-gray-50 px-10 py-5 rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] transition-all"
+                        >
+                          Hủy bỏ
+                        </button>
+                         <button 
+                          onClick={async () => {
+                            if (!newOrderForm.customerId || newOrderForm.items.length === 0) {
+                              alert('Vui lòng chọn khách hàng và ít nhất một sản phẩm');
+                              return;
+                            }
+                            
+                            const customer = customers.find(c => c.customer_id === newOrderForm.customerId);
+                            
+                            try {
+                              await orderAPI.create({
+                                customer_id: newOrderForm.customerId,
+                                total_amount: newOrderForm.items.reduce((acc, item) => acc + (item.price * item.quantity), 0),
+                                status: 'Pending',
+                                shipping_address: customer?.address || '',
+                                payment_method: 'COD',
+                                items: newOrderForm.items.map(item => ({
+                                  sku_id: item.sku_id,
+                                  quantity: item.quantity,
+                                  price_at_order: item.price
+                                }))
+                              });
+                              
+                              const updated = await orderAPI.getAll();
+                              setOrders(updated);
+                              setNewOrderForm({ customerId: '', selectedSkuId: '', items: [] });
+                              setIsAddOrderOpen(false);
+                            } catch (err) {
+                              alert('Lỗi khi tạo đơn hàng');
+                            }
+                          }}
+                          className="bg-brand-dark hover:scale-[1.02] active:scale-[0.98] text-white px-12 py-5 rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-2xl shadow-black/20"
+                        >
+                          Xác nhận tạo Đơn hàng
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Create Order Modal / Overlay - MOVED TO MAIN CONTENT */}
+
+        <AnimatePresence>
+          {activeOrder && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex justify-end"
+              onClick={() => setSelectedOrderId(null)}
+            >
+              <motion.div
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                className="w-full max-w-xl bg-white h-screen shadow-2xl p-8 md:p-12 overflow-y-auto"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex justify-between items-start mb-12">
+                  <div>
+                    <h2 className="text-[28px] md:text-[34px] font-black uppercase tracking-tighter mb-2 text-brand-dark">Chi tiết đơn hàng</h2>
+                    <p className="text-[11px] text-gray-400 font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                       <Clock size={12} /> #ORD-{activeOrder.order_id}
+                    </p>
+                  </div>
+                  <button onClick={() => setSelectedOrderId(null)} className="p-3 hover:bg-gray-100 rounded-full transition-[] text-gray-400 hover:text-brand-dark">
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <div className="space-y-12">
+                  <section>
+                    <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-300 mb-6 border-b border-gray-50 pb-4">Thông tin khách hàng</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                       <div className="space-y-1">
+                         <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Họ tên</p>
+                         <p className="font-black uppercase tracking-tight text-brand-dark">{customers.find(c => c.customer_id === activeOrder.customer_id)?.name}</p>
+                       </div>
+                       <div className="space-y-1">
+                         <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Email</p>
+                         <p className="font-bold text-sm text-gray-600">{customers.find(c => c.customer_id === activeOrder.customer_id)?.email}</p>
+                       </div>
+                       <div className="col-span-1 md:col-span-2 space-y-1">
+                         <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Địa chỉ giao hàng</p>
+                         <p className="font-bold text-sm leading-relaxed text-gray-600">{activeOrder.shipping_address}</p>
+                       </div>
+                    </div>
+                  </section>
+
+                   <section>
+                    <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-300 mb-6 border-b border-gray-50 pb-4">Sản phẩm</h3>
+                    <div className="space-y-6">
+                      {getOrderItems(activeOrder.order_id).map((item, i) => (
+                        <div key={i} className="flex gap-6 items-center group">
+                          <div className="w-20 h-24 bg-brand-light rounded-2xl overflow-hidden flex-shrink-0 shadow-sm">
+                            {item.image && <img src={item.image} alt="" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" referrerPolicy="no-referrer" />}
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="text-lg font-black uppercase tracking-tight text-brand-dark">{item.product?.name}</h4>
+                            <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] mt-1 space-x-2">
+                              <span>Kích cỡ: {item.size?.name}</span>
+                              <span className="opacity-20">|</span>
+                              <span>Màu: {item.color?.name}</span>
+                              <span className="opacity-20">|</span>
+                              <span className="text-brand-dark">x{item.quantity}</span>
+                            </p>
+                            <p className="text-base font-black mt-3 text-brand-dark">
+                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.price_at_order)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section>
+                    <div className="flex items-center justify-between mb-6 border-b border-gray-50 pb-4">
+                       <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-300">Cập nhật trạng thái</h3>
+                       <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${STATUS_COLORS[activeOrder.status]}`}>
+                         Hiện tại: {STATUS_LABELS[activeOrder.status]}
+                       </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                        <button
+                          key={value}
+                          onClick={() => handleStatusChange(activeOrder.order_id, value as Order['status'])}
+                          className={`py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl border transition-all ${
+                            activeOrder.status === value 
+                              ? 'bg-brand-dark border-brand-dark text-white shadow-xl shadow-black/20 ring-4 ring-brand-dark/5' 
+                              : 'border-gray-100 text-gray-400 hover:border-brand-dark hover:text-brand-dark hover:bg-gray-50'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+
+                  <div className="pt-12 flex flex-col gap-4">
+                     {activeOrder.discount_amount && activeOrder.discount_amount > 0 ? (
+                       <div className="flex items-center justify-between">
+                         <div className="text-left">
+                           <p className="text-[10px] font-black uppercase text-green-500 tracking-widest mb-1">Giảm giá</p>
+                           <p className="text-xl font-black text-green-500">-{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(activeOrder.discount_amount)}</p>
+                         </div>
+                       </div>
+                     ) : null}
+                     <div className="flex items-center justify-between border-t border-gray-50 pt-4">
+                       <div className="text-left">
+                          <p className="text-[10px] font-black uppercase text-gray-300 tracking-widest mb-1">Tổng cộng tiền</p>
+                          <p className="text-3xl font-black text-brand-dark">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(activeOrder.total_amount)}</p>
+                       </div>
+                       <button className="bg-brand-dark text-white px-10 py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl shadow-black/20 hover:scale-[1.02] transition-transform">
+                          In hóa đơn
+                       </button>
+                     </div>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+    </div>
+  );
+};

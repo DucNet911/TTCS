@@ -1,0 +1,1187 @@
+═══════════════════════════════════════════════════════════════
+                        TRANG BÌA
+═══════════════════════════════════════════════════════════════
+
+TRƯỜNG ĐẠI HỌC ...
+KHOA CÔNG NGHỆ THÔNG TIN
+
+BÁO CÁO THỰC TẬP CƠ SỞ
+
+ĐỀ TÀI: XÂY DỰNG WEBSITE THƯƠNG MẠI ĐIỆN TỬ
+BÁN ĐỒ THỂ THAO - FITGEAR
+
+Sinh viên thực hiện: [Họ và tên]
+Mã sinh viên:        B23DCVT095
+Lớp:                 [Tên lớp]
+Giảng viên hướng dẫn: [Họ và tên GV]
+
+TP. Hồ Chí Minh, tháng 05 năm 2026
+
+
+═══════════════════════════════════════════════════════════════
+                        MỤC LỤC
+═══════════════════════════════════════════════════════════════
+
+1. Giới thiệu đề tài
+   1.1. Mô tả bài toán
+   1.2. Mục tiêu
+   1.3. Phạm vi
+2. Công nghệ sử dụng
+   2.1. Frontend
+   2.2. Backend
+   2.3. Cơ sở dữ liệu
+   2.4. Kiến trúc hệ thống
+3. Cơ sở dữ liệu
+   3.1. Tên database
+   3.2. Danh sách 22 bảng và cấu trúc chi tiết
+   3.3. Sơ đồ quan hệ chính
+   3.4. Các ràng buộc và cơ chế bảo vệ dữ liệu
+4. Các chức năng đã cài đặt
+   4.1. Phía khách hàng (Customer)
+   4.2. Phía quản trị viên (Admin)
+   4.3. Phía Backend API
+5. Kết luận
+   5.1. Kết quả đạt được
+   5.2. Hạn chế
+   5.3. Hướng phát triển
+
+
+═══════════════════════════════════════════════════════════════
+          CHƯƠNG 1: GIỚI THIỆU ĐỀ TÀI
+═══════════════════════════════════════════════════════════════
+
+1.1. Mô tả bài toán
+
+Xây dựng hệ thống website thương mại điện tử chuyên bán đồ thể thao mang
+tên FitGear. Hệ thống phục vụ hai nhóm người dùng chính:
+
+- Khách hàng (Customer): Duyệt sản phẩm theo danh mục, giới tính và từ
+  khóa; xem chi tiết sản phẩm với gallery ảnh; chọn biến thể (size/màu);
+  quản lý giỏ hàng; áp dụng mã giảm giá; đặt hàng; theo dõi đơn hàng;
+  quản lý danh sách yêu thích và viết đánh giá sản phẩm.
+
+- Quản trị viên (Admin/Staff): Quản lý danh mục sản phẩm (CRUD đầy đủ
+  bao gồm biến thể SKU và hình ảnh); quản lý thương hiệu; quản lý đơn
+  hàng (xem, tạo mới, cập nhật trạng thái, xóa); quản lý danh sách
+  khách hàng.
+
+
+1.2. Mục tiêu
+
+- Xây dựng website thương mại điện tử hoàn chỉnh theo mô hình 3 lớp
+  (Three-tier Architecture): Frontend — Backend API — Database.
+- Áp dụng các kiến thức lập trình web hiện đại: React SPA, RESTful API,
+  MySQL với chuẩn hóa quan hệ.
+- Đảm bảo tính toàn vẹn dữ liệu khi đặt hàng bằng Database Transaction
+  và Pessimistic Locking.
+- Giao diện người dùng hiện đại, responsive, có hiệu ứng animation mượt.
+
+
+1.3. Phạm vi
+
+Hệ thống bao gồm 3 thành phần chính:
+
++-------------+-----------------+------------------------------------------+
+| Thành phần  | Thư mục         | Mô tả                                    |
++-------------+-----------------+------------------------------------------+
+| Frontend    | frontend-gym/   | Giao diện người dùng (React + Vite)      |
+| Backend     | backend-gym/    | API Server (Node.js + Express)           |
+| Database    | database/       | Cơ sở dữ liệu MySQL (22 bảng)           |
++-------------+-----------------+------------------------------------------+
+
+
+═══════════════════════════════════════════════════════════════
+          CHƯƠNG 2: CÔNG NGHỆ SỬ DỤNG
+═══════════════════════════════════════════════════════════════
+
+2.1. Frontend
+
++---------------------+-----------+--------------------------------------------------+
+| Công nghệ           | Phiên bản | Vai trò                                          |
++---------------------+-----------+--------------------------------------------------+
+| React               | 19.x      | Thư viện xây dựng giao diện người dùng (UI)      |
+|                     |           | dựa trên component. Toàn bộ ứng dụng là SPA     |
+|                     |           | (Single Page Application) không tải lại trang.   |
++---------------------+-----------+--------------------------------------------------+
+| Vite                | 6.x       | Công cụ build và dev server tốc độ cao.          |
+|                     |           | Hot Module Replacement (HMR) giúp phát triển     |
+|                     |           | nhanh hơn Webpack/CRA truyền thống.              |
++---------------------+-----------+--------------------------------------------------+
+| TypeScript          | 5.8       | Ngôn ngữ lập trình có kiểu dữ liệu tĩnh,        |
+|                     |           | giảm lỗi runtime. Các kiểu dữ liệu (Product,    |
+|                     |           | Order, Cart...) được định nghĩa trong types.ts.  |
++---------------------+-----------+--------------------------------------------------+
+| Tailwind CSS        | 4.x       | Framework CSS tiện ích (utility-first).          |
+|                     |           | Viết style trực tiếp trong JSX bằng class name,  |
+|                     |           | không cần tạo file CSS riêng. Responsive bằng    |
+|                     |           | breakpoint prefix (md:, lg:, xl:).               |
++---------------------+-----------+--------------------------------------------------+
+| React Router DOM    | 7.x       | Quản lý điều hướng (routing) phía client.        |
+|                     |           | Định nghĩa các route: /, /men, /women,           |
+|                     |           | /category/:gender/:section/:item,                |
+|                     |           | /product/:id, /checkout, /account,               |
+|                     |           | /admin/products, /admin/orders, /admin/customers.|
++---------------------+-----------+--------------------------------------------------+
+| Framer Motion       | 12.x      | Thư viện tạo hiệu ứng chuyển động (animation).   |
+|                     |           | Dùng cho Hero Slider, Modal mở/đóng, chuyển      |
+|                     |           | trang, danh sách sản phẩm xuất hiện.             |
++---------------------+-----------+--------------------------------------------------+
+| Lucide React        | 0.5x      | Bộ icon SVG hiện đại, nhẹ. Được dùng cho các    |
+|                     |           | icon điều hướng, nút hành động, trạng thái.      |
++---------------------+-----------+--------------------------------------------------+
+
+
+2.2. Backend
+
++---------------------+-----------+--------------------------------------------------+
+| Công nghệ           | Phiên bản | Vai trò                                          |
++---------------------+-----------+--------------------------------------------------+
+| Node.js             | 18+       | Runtime JavaScript phía server. Xử lý I/O        |
+|                     |           | bất đồng bộ (non-blocking) phù hợp với API.      |
++---------------------+-----------+--------------------------------------------------+
+| Express.js          | 4.x       | Framework web tối giản. Định nghĩa Router cho    |
+|                     |           | từng nhóm tài nguyên (products, orders, carts,   |
+|                     |           | customers, vouchers...). Xử lý request/response   |
+|                     |           | qua middleware chain.                             |
++---------------------+-----------+--------------------------------------------------+
+| MySQL2              | 3.x       | Driver kết nối MySQL hỗ trợ Promise API và       |
+|                     |           | async/await. Sử dụng Connection Pool để tái sử   |
+|                     |           | dụng kết nối, tối ưu hiệu năng. Hỗ trợ          |
+|                     |           | Transaction với conn.beginTransaction(),         |
+|                     |           | conn.commit(), conn.rollback().                  |
++---------------------+-----------+--------------------------------------------------+
+| bcryptjs            | 2.x       | Mã hóa mật khẩu bằng thuật toán bcrypt (salt     |
+|                     |           | rounds = 10). Mật khẩu gốc không bao giờ được   |
+|                     |           | lưu vào database.                                |
++---------------------+-----------+--------------------------------------------------+
+| cors                | 2.x       | Middleware cho phép Frontend (port 3000) gọi     |
+|                     |           | API Backend (port 5000) qua cơ chế CORS.         |
++---------------------+-----------+--------------------------------------------------+
+| dotenv              | 16.x      | Đọc biến môi trường từ file .env (DB host,       |
+|                     |           | port, user, password, database name).            |
++---------------------+-----------+--------------------------------------------------+
+| nodemon             | 3.x       | Theo dõi thay đổi file source code và tự         |
+|                     |           | động khởi động lại server trong quá trình        |
+|                     |           | phát triển.                                      |
++---------------------+-----------+--------------------------------------------------+
+
+
+2.3. Cơ sở dữ liệu
+
++---------------------+-----------+--------------------------------------------------+
+| Công nghệ           | Phiên bản | Vai trò                                          |
++---------------------+-----------+--------------------------------------------------+
+| MySQL               | 8.0       | Hệ quản trị cơ sở dữ liệu quan hệ (RDBMS).     |
+|                     |           | Hỗ trợ Transaction, Foreign Key, Enum type,      |
+|                     |           | CHECK constraint, ON DELETE CASCADE/SET NULL,    |
+|                     |           | ON UPDATE CURRENT_TIMESTAMP, SELECT...FOR UPDATE |
+|                     |           | (Pessimistic Locking).                           |
++---------------------+-----------+--------------------------------------------------+
+
+
+2.4. Kiến trúc hệ thống
+
+Hệ thống được thiết kế theo mô hình 3 lớp (Three-tier Architecture):
+
++-----------------+   HTTP/JSON    +-----------------+   SQL Queries  +-----------------+
+|                 |  (port 3000)   |                 |  (port 3306)   |                 |
+|    FRONTEND     | <============> |    BACKEND      | <============> |    DATABASE     |
+|  React + Vite   |  RESTful API   |  Node+Express   |  MySQL2 Pool   |   MySQL 8.0     |
+|  TypeScript     |                |  src/routes/*   |                |  fitgear_db     |
+|  Tailwind CSS   |                |  src/app.js     |                |  22 bảng        |
++-----------------+                +-----------------+                +-----------------+
+   localhost:3000                     localhost:5000                    localhost:3306
+
+Mô tả từng lớp:
+- Lớp 1 - Presentation Layer (Frontend):
+  React SPA chạy trên cổng 3000. Giao tiếp với Backend qua fetch() API,
+  tất cả endpoint được tập trung trong file src/api.ts với base URL
+  http://localhost:5000/api. Không có business logic phức tạp tại đây,
+  chỉ render UI và gọi API.
+
+- Lớp 2 - Business Logic Layer (Backend):
+  Express.js chạy trên cổng 5000. Mỗi nhóm tài nguyên có một Router
+  riêng trong src/routes/. Xử lý validation, business rules (kiểm tra
+  tồn kho, tính giảm giá), Transaction khi đặt hàng, mã hóa mật khẩu.
+
+- Lớp 3 - Data Layer (Database):
+  MySQL 8.0 lưu trữ toàn bộ dữ liệu với 22 bảng quan hệ được chuẩn hóa
+  đến dạng 3NF, có đầy đủ ràng buộc toàn vẹn.
+
+
+═══════════════════════════════════════════════════════════════
+          CHƯƠNG 3: CƠ SỞ DỮ LIỆU
+═══════════════════════════════════════════════════════════════
+
+3.1. Tên database: fitgear_db
+
+3.2. Danh sách 22 bảng và cấu trúc chi tiết
+
++-----+------------------+------+------------------------------------------------------+
+| STT | Tên bảng         | Cột  | Mô tả và các cột quan trọng                         |
++-----+------------------+------+------------------------------------------------------+
+|  1  | STAFF            |  8   | Nhân viên / Quản trị viên.                          |
+|     |                  |      | - staff_id (PK, AUTO_INCREMENT)                     |
+|     |                  |      | - username VARCHAR(50) UNIQUE                       |
+|     |                  |      | - password_hash VARCHAR(255) — bcrypt               |
+|     |                  |      | - full_name, role VARCHAR(50)                       |
+|     |                  |      | - status BOOLEAN DEFAULT TRUE                       |
+|     |                  |      | - created_at, updated_at DATETIME                   |
++-----+------------------+------+------------------------------------------------------+
+|  2  | CUSTOMERS        | 10   | Khách hàng đăng ký tài khoản.                      |
+|     |                  |      | - customer_id (PK, AUTO_INCREMENT)                  |
+|     |                  |      | - name, email UNIQUE, password_hash                 |
+|     |                  |      | - phone, address TEXT, birth_date DATE              |
+|     |                  |      | - gender ENUM('Male','Female','Other')              |
+|     |                  |      | - status ENUM('Active','Inactive','Banned')         |
+|     |                  |      | - register_date, updated_at DATETIME                |
++-----+------------------+------+------------------------------------------------------+
+|  3  | CATEGORIES       |  6   | Danh mục sản phẩm, hỗ trợ cấu trúc đa cấp qua     |
+|     |                  |      | trường parent_id tự tham chiếu (self-reference).   |
+|     |                  |      | VD: "Quần áo" → "Áo" → "Áo Tank Top"              |
+|     |                  |      | - category_id (PK), name, description              |
+|     |                  |      | - parent_id FK → CATEGORIES(category_id)           |
+|     |                  |      |   ON DELETE SET NULL (xóa cha không xóa con)       |
+|     |                  |      | - created_at, updated_at DATETIME                  |
++-----+------------------+------+------------------------------------------------------+
+|  4  | BRANDS           |  6   | Thương hiệu sản phẩm (Nike, Adidas, Lululemon...). |
+|     |                  |      | - brand_id (PK), name, description                 |
+|     |                  |      | - logo VARCHAR(255) — URL ảnh logo                 |
+|     |                  |      | - created_at, updated_at DATETIME                  |
++-----+------------------+------+------------------------------------------------------+
+|  5  | SIZES            |  2   | Bảng tra cứu kích cỡ (S, M, L, XL, XXL, 37–43).  |
+|     |                  |      | - size_id (PK), name VARCHAR(20)                   |
++-----+------------------+------+------------------------------------------------------+
+|  6  | COLORS           |  3   | Bảng tra cứu màu sắc, kèm mã hex để hiển thị      |
+|     |                  |      | bộ chọn màu trực quan trên giao diện.              |
+|     |                  |      | - color_id (PK), name VARCHAR(50), hex_code        |
++-----+------------------+------+------------------------------------------------------+
+|  7  | FITNESS_GOALS    |  3   | Mục tiêu thể hình (Giảm cân, Tăng cơ, Sức bền,   |
+|     |                  |      | Phục hồi, Linh hoạt...).                           |
+|     |                  |      | - goal_id (PK), name, description TEXT             |
++-----+------------------+------+------------------------------------------------------+
+|  8  | VOUCHERS         |  9   | Mã giảm giá với 2 kiểu: phần trăm và số tiền cố  |
+|     |                  |      | định. Có giới hạn số lần dùng và ngày hết hạn.    |
+|     |                  |      | - voucher_id (PK), code VARCHAR(50) UNIQUE         |
+|     |                  |      | - discount_type ENUM('Percent','Fixed')            |
+|     |                  |      | - discount_value DECIMAL(10,2)                     |
+|     |                  |      | - max_discount_amount — giới hạn tối đa khi %      |
+|     |                  |      | - min_order_value — đơn tối thiểu để áp dụng      |
+|     |                  |      | - expiry_date DATE, usage_limit INT                |
+|     |                  |      | - used_count INT DEFAULT 0 — đếm số lần đã dùng   |
++-----+------------------+------+------------------------------------------------------+
+|  9  | PRODUCTS         | 12   | Sản phẩm gốc (thông tin chung, chưa phân biệt     |
+|     |                  |      | size/màu). Sử dụng soft delete (is_deleted).       |
+|     |                  |      | - product_id (PK), name, description TEXT          |
+|     |                  |      | - base_price DECIMAL(10,2)                         |
+|     |                  |      | - material VARCHAR(100) — chất liệu vải            |
+|     |                  |      | - gender ENUM('men','women','unisex')              |
+|     |                  |      | - brand_id FK → BRANDS ON DELETE SET NULL          |
+|     |                  |      | - category_id FK → CATEGORIES ON DELETE SET NULL   |
+|     |                  |      | - staff_id FK → STAFF ON DELETE SET NULL           |
+|     |                  |      | - is_deleted BOOLEAN DEFAULT FALSE — soft delete   |
+|     |                  |      | - created_at, updated_at DATETIME                  |
++-----+------------------+------+------------------------------------------------------+
+| 10  | PRODUCT_SKUS     |  8   | Biến thể sản phẩm theo tổ hợp Size + Color.       |
+|     |                  |      | Mỗi biến thể có mã SKU riêng, giá riêng, tồn kho  |
+|     |                  |      | riêng. Đây là đơn vị thực tế được bán và          |
+|     |                  |      | thêm vào giỏ hàng / đơn hàng.                     |
+|     |                  |      | - sku_id (PK), product_id FK ON DELETE CASCADE     |
+|     |                  |      | - size_id FK → SIZES ON DELETE SET NULL            |
+|     |                  |      | - color_id FK → COLORS ON DELETE SET NULL          |
+|     |                  |      | - sku_code VARCHAR(100) UNIQUE — mã nội bộ         |
+|     |                  |      | - stock INT DEFAULT 0 — tồn kho hiện tại           |
+|     |                  |      | - price DECIMAL(10,2) — giá bán thực tế            |
+|     |                  |      | - is_deleted BOOLEAN DEFAULT FALSE                 |
++-----+------------------+------+------------------------------------------------------+
+| 11  | PRODUCT_IMAGES   |  4   | Hình ảnh của sản phẩm. Một sản phẩm có nhiều     |
+|     |                  |      | ảnh, trong đó một ảnh được đánh dấu is_primary    |
+|     |                  |      | làm ảnh đại diện (thumbnail).                     |
+|     |                  |      | - image_id (PK), product_id FK ON DELETE CASCADE   |
+|     |                  |      | - image_url VARCHAR(255)                           |
+|     |                  |      | - is_primary BOOLEAN DEFAULT FALSE                 |
++-----+------------------+------+------------------------------------------------------+
+| 12  | PRODUCT_GOALS    |  3   | Bảng liên kết nhiều-nhiều: Sản phẩm ↔ Mục tiêu. |
+|     |                  |      | Một sản phẩm phù hợp với nhiều mục tiêu thể hình. |
+|     |                  |      | - pg_id (PK)                                       |
+|     |                  |      | - product_id FK ON DELETE CASCADE                  |
+|     |                  |      | - goal_id FK ON DELETE CASCADE                     |
++-----+------------------+------+------------------------------------------------------+
+| 13  | CUSTOMER_GOALS   |  4   | Bảng liên kết: Khách hàng ↔ Mục tiêu thể hình.   |
+|     |                  |      | Lưu mục tiêu cá nhân của từng khách hàng.         |
+|     |                  |      | - cg_id (PK)                                       |
+|     |                  |      | - customer_id FK ON DELETE CASCADE                 |
+|     |                  |      | - goal_id FK ON DELETE CASCADE                     |
+|     |                  |      | - start_date DATE — ngày bắt đầu theo mục tiêu    |
++-----+------------------+------+------------------------------------------------------+
+| 14  | CARTS            |  3   | Giỏ hàng. Mỗi khách hàng có đúng 1 giỏ hàng     |
+|     |                  |      | (UNIQUE constraint trên customer_id).             |
+|     |                  |      | - cart_id (PK)                                     |
+|     |                  |      | - customer_id FK UNIQUE ON DELETE CASCADE          |
+|     |                  |      | - created_date DATETIME                            |
++-----+------------------+------+------------------------------------------------------+
+| 15  | CART_ITEMS       |  4   | Các sản phẩm trong giỏ hàng. Tham chiếu đến       |
+|     |                  |      | PRODUCT_SKUS (biến thể cụ thể) chứ không phải    |
+|     |                  |      | PRODUCTS tổng quát.                               |
+|     |                  |      | - cart_item_id (PK)                                |
+|     |                  |      | - cart_id FK ON DELETE CASCADE                     |
+|     |                  |      | - sku_id FK ON DELETE CASCADE                      |
+|     |                  |      | - quantity INT DEFAULT 1                           |
++-----+------------------+------+------------------------------------------------------+
+| 16  | WISHLIST         |  3   | Danh sách yêu thích. Mỗi khách hàng có 1 wishlist|
+|     |                  |      | (UNIQUE constraint trên customer_id).             |
+|     |                  |      | - wishlist_id (PK)                                 |
+|     |                  |      | - customer_id FK UNIQUE ON DELETE CASCADE          |
+|     |                  |      | - created_date DATETIME                            |
++-----+------------------+------+------------------------------------------------------+
+| 17  | WISHLIST_ITEMS   |  3   | Sản phẩm trong danh sách yêu thích. Tham chiếu   |
+|     |                  |      | đến PRODUCTS (sản phẩm gốc, không theo size/màu). |
+|     |                  |      | - wishlist_item_id (PK)                            |
+|     |                  |      | - wishlist_id FK ON DELETE CASCADE                 |
+|     |                  |      | - product_id FK ON DELETE CASCADE                  |
++-----+------------------+------+------------------------------------------------------+
+| 18  | ORDERS           | 11   | Đơn hàng. Lưu trạng thái vòng đời đơn hàng.      |
+|     |                  |      | - order_id (PK)                                    |
+|     |                  |      | - customer_id FK — khách hàng đặt hàng             |
+|     |                  |      | - staff_id FK ON DELETE SET NULL — nhân viên tạo  |
+|     |                  |      | - voucher_id FK ON DELETE SET NULL                 |
+|     |                  |      | - order_date DATETIME                              |
+|     |                  |      | - total_amount DECIMAL(10,2) — tổng trước giảm    |
+|     |                  |      | - discount_amount DECIMAL(10,2) DEFAULT 0          |
+|     |                  |      | - status ENUM('Pending','Confirmed','Shipping',    |
+|     |                  |      |          'Completed','Canceled')                   |
+|     |                  |      | - shipping_address TEXT NOT NULL                   |
+|     |                  |      | - payment_method ENUM('COD','Credit Card',         |
+|     |                  |      |          'E-wallet')                               |
+|     |                  |      | - updated_at ON UPDATE CURRENT_TIMESTAMP           |
++-----+------------------+------+------------------------------------------------------+
+| 19  | ORDER_ITEMS      |  5   | Chi tiết sản phẩm trong đơn hàng. Lưu giá tại    |
+|     |                  |      | thời điểm đặt (price_at_order) để đề phòng        |
+|     |                  |      | trường hợp giá sản phẩm thay đổi sau này.         |
+|     |                  |      | - order_item_id (PK)                               |
+|     |                  |      | - order_id FK ON DELETE CASCADE                    |
+|     |                  |      | - sku_id FK (không CASCADE — giữ lịch sử)         |
+|     |                  |      | - quantity INT NOT NULL                            |
+|     |                  |      | - price_at_order DECIMAL(10,2) — giá tại lúc đặt |
++-----+------------------+------+------------------------------------------------------+
+| 20  | PAYMENTS         |  6   | Thông tin thanh toán, liên kết 1-1 với đơn hàng. |
+|     |                  |      | - payment_id (PK)                                  |
+|     |                  |      | - order_id FK UNIQUE ON DELETE CASCADE             |
+|     |                  |      | - payment_date DATETIME                            |
+|     |                  |      | - amount DECIMAL(10,2) — số tiền thực thanh toán  |
+|     |                  |      | - status ENUM('Pending','Success','Failed')        |
+|     |                  |      | - transaction_id VARCHAR(100) — mã giao dịch       |
++-----+------------------+------+------------------------------------------------------+
+| 21  | SHIPPING         |  8   | Thông tin vận chuyển, liên kết 1-1 với đơn hàng. |
+|     |                  |      | - shipping_id (PK)                                 |
+|     |                  |      | - order_id FK UNIQUE ON DELETE CASCADE             |
+|     |                  |      | - shipping_method, shipping_fee DECIMAL(10,2)      |
+|     |                  |      | - ship_date, delivery_date DATETIME                |
+|     |                  |      | - tracking_number VARCHAR(100)                     |
+|     |                  |      | - status ENUM('Preparing','Shipped','In Transit',  |
+|     |                  |      |          'Delivered','Returned')                   |
++-----+------------------+------+------------------------------------------------------+
+| 22  | REVIEWS          |  7   | Đánh giá sản phẩm của khách hàng sau khi mua.    |
+|     |                  |      | Rating từ 1 đến 5 sao, có kiểm tra bằng CHECK.   |
+|     |                  |      | - review_id (PK)                                   |
+|     |                  |      | - product_id FK ON DELETE CASCADE                  |
+|     |                  |      | - customer_id FK ON DELETE CASCADE                 |
+|     |                  |      | - order_id FK — liên kết với đơn hàng thực tế     |
+|     |                  |      | - rating INT CHECK (rating >= 1 AND rating <= 5)   |
+|     |                  |      | - comment TEXT                                     |
+|     |                  |      | - review_date DATETIME                             |
++-----+------------------+------+------------------------------------------------------+
+
+
+3.3. Sơ đồ quan hệ chính (ER tóm tắt)
+
+                    BRANDS ──────┐
+                                 │         ┌──── SIZES
+                    CATEGORIES ──┤         │
+                                 ▼         ▼
+FITNESS_GOALS ─── PRODUCT_GOALS ─── PRODUCTS ─── PRODUCT_SKUS ─── CART_ITEMS ─── CARTS
+      │                                 │                │                              │
+CUSTOMER_GOALS                   PRODUCT_IMAGES   ORDER_ITEMS                    CUSTOMERS
+      │                                                  │                              │
+CUSTOMERS                               ORDERS ──────────┤                       WISHLIST
+                                            │            │                              │
+                                        PAYMENTS      ORDERS ─── SHIPPING        WISHLIST_ITEMS
+                                                          │
+                                                      VOUCHERS
+                                                          │
+                                                       REVIEWS
+
+
+3.4. Các ràng buộc và cơ chế bảo vệ dữ liệu
+
+a) ON DELETE CASCADE (xóa dây chuyền):
+   - Xóa PRODUCTS → tự xóa PRODUCT_IMAGES, PRODUCT_SKUS, PRODUCT_GOALS,
+     REVIEWS liên quan. Đảm bảo không còn orphaned records.
+   - Xóa CUSTOMERS → tự xóa CARTS, CART_ITEMS, WISHLIST, WISHLIST_ITEMS,
+     CUSTOMER_GOALS, REVIEWS của khách đó.
+   - Xóa ORDERS → tự xóa ORDER_ITEMS, PAYMENTS, SHIPPING.
+   - Xóa CARTS → tự xóa CART_ITEMS; xóa WISHLIST → xóa WISHLIST_ITEMS.
+
+b) ON DELETE SET NULL (giữ lại bản ghi, xóa liên kết):
+   - Xóa CATEGORIES hoặc BRANDS → sản phẩm vẫn tồn tại, chỉ mất
+     category_id hoặc brand_id (thành NULL). Không phá vỡ dữ liệu sản phẩm.
+   - Xóa STAFF → đơn hàng vẫn tồn tại, staff_id thành NULL.
+   - Xóa VOUCHERS → đơn hàng vẫn tồn tại, voucher_id thành NULL.
+
+c) Soft Delete (Xóa mềm):
+   - PRODUCTS và PRODUCT_SKUS có cột is_deleted BOOLEAN DEFAULT FALSE.
+   - Thay vì xóa vật lý, hệ thống set is_deleted = TRUE.
+   - Sản phẩm bị ẩn không hiển thị cho khách hàng (Backend lọc
+     WHERE is_deleted = FALSE).
+   - Vẫn giữ lại để không phá vỡ ORDER_ITEMS đang tham chiếu đến
+     PRODUCT_SKUS.sku_id.
+   - Admin có thể khôi phục (restore) bất kỳ lúc nào.
+
+d) Timestamp Audit (Theo dõi thời gian):
+   - Các bảng quan trọng đều có created_at DEFAULT CURRENT_TIMESTAMP.
+   - updated_at sử dụng ON UPDATE CURRENT_TIMESTAMP — tự cập nhật mỗi
+     khi có thay đổi dữ liệu, không cần code thủ công.
+
+e) Pessimistic Locking khi đặt hàng:
+   - Khi tạo đơn hàng, Backend dùng SELECT...FOR UPDATE trên PRODUCT_SKUS
+     để khóa các dòng tồn kho ở mức row-level.
+   - Ngăn race condition: nếu 2 người đặt cùng lúc 1 sản phẩm còn 1 cái,
+     người thứ 2 phải chờ transaction của người thứ 1 hoàn tất.
+   - Ngoài ra, lệnh UPDATE còn dùng điều kiện AND stock >= quantity làm
+     lớp bảo vệ thứ 2 (double-check), trả về 409 nếu affectedRows = 0.
+
+f) Lưu giá tại thời điểm đặt hàng:
+   - ORDER_ITEMS.price_at_order lưu giá thực tế lúc khách đặt.
+   - Khi giá sản phẩm thay đổi sau này, lịch sử đơn hàng không bị ảnh hưởng.
+
+
+═══════════════════════════════════════════════════════════════
+          CHƯƠNG 4: CÁC CHỨC NĂNG ĐÃ CÀI ĐẶT
+═══════════════════════════════════════════════════════════════
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4.1. PHÍA KHÁCH HÀNG (CUSTOMER)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 1: ĐĂNG KÝ TÀI KHOẢN                           ║
+╚══════════════════════════════════════════════════════════════╝
+
+Mô tả nghiệp vụ:
+  Khách hàng chưa có tài khoản nhấn "Chưa có tài khoản? Đăng ký ngay"
+  trên trang /account để chuyển sang form đăng ký. Khách hàng điền đầy
+  đủ các trường:
+    - Họ và tên (bắt buộc)
+    - Email (bắt buộc, phải là email hợp lệ, duy nhất trong hệ thống)
+    - Mật khẩu (bắt buộc)
+    - Số điện thoại (tùy chọn)
+    - Ngày sinh (tùy chọn, kiểu date picker)
+    - Địa chỉ (tùy chọn)
+    - Giới tính (Nam / Nữ / Khác)
+
+  Khi nhấn "Tạo tài khoản":
+    1. Frontend gọi API POST /api/auth/register với toàn bộ dữ liệu form.
+    2. Backend kiểm tra email đã tồn tại chưa bằng query SELECT.
+    3. Nếu email trùng → trả về lỗi 400, Frontend hiển thị thông báo lỗi.
+    4. Nếu hợp lệ → mã hóa mật khẩu bằng bcrypt (salt rounds=10) rồi
+       INSERT vào bảng CUSTOMERS.
+    5. Backend trả về thông tin customer vừa tạo.
+    6. Frontend tự động đăng nhập, lưu user vào AuthContext (React Context)
+       và localStorage, chuyển hướng về trang /account.
+
+File liên quan: src/pages/Account.tsx, backend-gym/src/routes/auth.js
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 2: ĐĂNG NHẬP TÀI KHOẢN                         ║
+╚══════════════════════════════════════════════════════════════╝
+
+Mô tả nghiệp vụ:
+  Khách hàng đã có tài khoản vào trang /account, nhập Email và Mật khẩu
+  rồi nhấn "Đăng nhập".
+
+    1. Frontend gọi API POST /api/auth/login với { email, password }.
+    2. Backend tìm CUSTOMER theo email.
+    3. Nếu không tìm thấy → lỗi "Tài khoản không tồn tại".
+    4. Nếu tìm thấy → so sánh mật khẩu nhập vào với hash bằng
+       bcrypt.compare(). Nếu sai → lỗi "Mật khẩu không chính xác".
+    5. Nếu đúng → trả về toàn bộ thông tin customer (trừ password_hash).
+    6. Frontend lưu user vào AuthContext và localStorage (persist qua
+       F5). Chuyển hướng về /account.
+
+  Sau khi đăng nhập, khách hàng thấy trang hồ sơ thay vì form đăng nhập.
+  Navbar hiển thị tên người dùng và icon tài khoản đã đổi màu.
+
+File liên quan: src/pages/Account.tsx, src/AuthContext.tsx,
+                backend-gym/src/routes/auth.js
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 3: TRANG CHỦ VÀ HERO SLIDER                    ║
+╚══════════════════════════════════════════════════════════════╝
+
+Mô tả nghiệp vụ:
+  Trang chủ (/) là điểm vào chính của website, hiển thị:
+
+  a) Hero Slider toàn màn hình (90vh):
+     - 3 slide ảnh nền với tiêu đề và phụ đề khác nhau.
+     - Tự động chuyển slide sau mỗi 30 giây (setInterval).
+     - Người dùng có thể nhấn nút mũi tên trái/phải để chuyển thủ công.
+     - Có indicator dots phía dưới để biết đang ở slide nào.
+     - Hiệu ứng fade (opacity) khi chuyển slide bằng Framer Motion.
+
+  b) Thanh thông báo ưu đãi (Promo Bar):
+     - Hiển thị 3 thông tin: Miễn phí vận chuyển trên 2.000.000đ,
+       Đổi trả miễn phí, Giảm giá 10% sinh viên (link đến /info/...).
+
+  c) 3 phần sản phẩm nổi bật:
+     - "Dành cho nam": lấy 5 sản phẩm đầu tiên theo gender=men & category_id=1.
+     - "Dành cho nữ": lấy 5 sản phẩm đầu tiên theo gender=women & category_id=1.
+     - "Phụ kiện tập luyện": lấy 5 sản phẩm đầu tiên theo category_id=4.
+     - Mỗi phần có nút "Xem tất cả" điều hướng đến trang danh mục tương ứng.
+
+  d) Section "Tham gia cộng đồng" (chỉ hiển thị nếu chưa đăng nhập):
+     - Kêu gọi đăng ký, nút "Tham gia ngay" dẫn đến /account.
+
+File liên quan: src/pages/Home.tsx
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 4: DUYỆT SẢN PHẨM THEO DANH MỤC               ║
+╚══════════════════════════════════════════════════════════════╝
+
+Mô tả nghiệp vụ:
+  Khách hàng duyệt sản phẩm qua 3 kênh:
+
+  a) Trang /men, /women (Men.tsx, Women.tsx):
+     - Tải toàn bộ sản phẩm theo giới tính tương ứng (gender=men/women).
+     - Hiển thị dạng grid 2-5 cột tùy kích thước màn hình.
+     - Có bộ lọc sidebar: Giới tính, Size, Sắp xếp giá.
+     - Thanh lọc được ẩn/hiện bằng nút "Filter" trên mobile.
+
+  b) Trang /category/:gender/:section/:item (CategoryPage.tsx):
+     - Được điều hướng từ Mega Menu khi hover vào "Nam"/"Nữ"/"Phụ kiện"
+       trên Navbar, chọn danh mục cụ thể (VD: "Áo Tank Tops").
+     - Tải sản phẩm theo giới tính, sau đó lọc phía client theo tên
+       item trong URL bằng thuật toán chuẩn hóa Unicode:
+         + Chuyển về chữ thường.
+         + Dùng .normalize("NFD") và xóa dấu thanh Unicode [U+0300–U+036F].
+         + Chuyển chữ "đ" → "d".
+         + Xóa ký tự đặc biệt, giữ lại a-z0-9 và khoảng trắng.
+         + So sánh theo: chứa chuỗi đầy đủ, trường hợp đặc biệt
+           (tanktop, tshirt), hoặc từng từ trong chuỗi tìm kiếm.
+     - Hiển thị banner hero ảnh nền theo giới tính.
+
+  c) Trang /accessories:
+     - Tải sản phẩm từ 3 category (Giày, Dụng cụ tập, Phụ kiện).
+     - Ẩn bộ lọc Size vì phụ kiện không có size quần áo.
+
+  Mỗi ProductCard hiển thị: ảnh chính, tên sản phẩm, giá, nút thêm
+  vào wishlist (icon trái tim đổi màu đỏ nếu đã có trong wishlist).
+
+File liên quan: src/pages/Men.tsx, Women.tsx, Accessories.tsx,
+                src/pages/CategoryPage.tsx, src/components/ProductCard.tsx
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 5: XEM CHI TIẾT SẢN PHẨM                       ║
+╚══════════════════════════════════════════════════════════════╝
+
+Mô tả nghiệp vụ:
+  Khi nhấn vào một sản phẩm, chuyển đến trang /product/:id.
+  Giao diện chia làm 2 cột (7/5 trên desktop):
+
+  a) Cột trái — Gallery ảnh:
+     - Ảnh chính hiển thị lớn theo tỷ lệ 4:5.
+     - Hover chuột → hiệu ứng zoom với tỷ lệ 2.5x tại vị trí con trỏ
+       (transform-origin động dựa vào tọa độ chuột).
+     - Click để bật/tắt chế độ zoom cố định.
+     - Hàng thumbnail bên dưới để chọn ảnh (tối đa 5 thumbnail).
+     - Nút mũi tên trái/phải để lướt qua ảnh (hiện khi hover).
+
+  b) Cột phải — Thông tin sản phẩm:
+     - Breadcrumb điều hướng: Trang chủ / Giới tính / Tên sản phẩm.
+     - Badge thương hiệu và danh mục.
+     - Tên sản phẩm (uppercase, font black).
+     - Điểm đánh giá trung bình (số sao + tổng số đánh giá) nếu có.
+     - Giá hiển thị theo SKU được chọn (nếu chưa chọn thì dùng base_price).
+     - Cảnh báo đỏ "Chỉ còn X sản phẩm!" nếu tồn kho < 10.
+     - Mô tả sản phẩm.
+     - Thẻ mục tiêu thể hình (Fitness Goals tags).
+     - Chọn màu sắc: các nút tròn hiển thị màu thực tế (dùng hex_code).
+     - Chọn size: grid nút, tự động disable nếu size đó hết hàng với
+       màu đang chọn. Size bị disable hiển thị xám và không click được.
+     - Chọn số lượng: nút +/- với giới hạn tối thiểu là 1.
+     - Nút "Thêm vào giỏ hàng": disabled và hiện "Hết hàng" nếu SKU
+       được chọn hết hàng. Khi click kiểm tra lại số lượng vs tồn kho.
+     - Nút Wishlist (trái tim): thêm/xóa khỏi danh sách yêu thích.
+     - Nút Share.
+     - 3 thông tin chính sách: Miễn phí vận chuyển, Đổi trả 30 ngày,
+       Bảo hành chính hãng.
+
+  c) Phần chi tiết kỹ thuật (dưới màn hình):
+     - Bảng thông tin: Chất liệu, Thương hiệu, Mã SKU hiện tại.
+     - Mô tả dài có đề cập đến mục tiêu thể hình phù hợp.
+
+  d) Phần đánh giá:
+     - Hộp thống kê: điểm trung bình lớn + thanh sao.
+     - Form gửi đánh giá (chỉ hiện với user đã đăng nhập):
+       + 5 nút sao để chọn rating.
+       + Textarea nhập nội dung đánh giá.
+       + Nút "Gửi nhận xét" — gọi POST /api/reviews.
+     - Danh sách tất cả đánh giá, mỗi đánh giá có: tên khách, ngày,
+       sao, nội dung, badge "Đã mua hàng".
+
+File liên quan: src/pages/ProductDetail.tsx
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 6: TÌM KIẾM SẢN PHẨM                           ║
+╚══════════════════════════════════════════════════════════════╝
+
+Mô tả nghiệp vụ:
+  Khi nhấn icon tìm kiếm trên Navbar, hiện Search Overlay toàn màn hình.
+  Người dùng gõ từ khóa vào ô tìm kiếm → nhấn Enter hoặc icon tìm kiếm
+  → chuyển đến trang /search?q=từ_khóa.
+
+  Trang kết quả tìm kiếm (SearchResults.tsx):
+    1. Đọc query từ URL params (?q=...).
+    2. Gọi GET /api/products lấy toàn bộ sản phẩm.
+    3. Lọc phía client: tên sản phẩm hoặc mô tả chứa từ khóa
+       (case-insensitive).
+    4. Hiển thị bộ lọc sidebar có thể thu/mở:
+       - Sắp xếp: Phù hợp nhất / Giá tăng dần / Giá giảm dần / Mới nhất.
+       - Lọc giới tính: Nam / Nữ / Unisex (checkbox).
+       - Lọc Size (checkbox).
+       - Lọc màu sắc (checkbox).
+    5. Mỗi bộ lọc có animation Framer Motion khi thu/mở.
+    6. Hiển thị số kết quả tìm được.
+    7. Nút "X" để xóa từng filter đang active.
+
+File liên quan: src/pages/SearchResults.tsx, src/components/SearchOverlay.tsx
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 7: GIỎ HÀNG (CART DRAWER)                      ║
+╚══════════════════════════════════════════════════════════════╝
+
+Mô tả nghiệp vụ:
+  Giỏ hàng hoạt động như một Drawer (panel trượt từ phải) không cần
+  rời trang hiện tại. Trạng thái giỏ hàng được quản lý bằng CartContext
+  (React Context + localStorage) để persist qua F5.
+
+  Thêm vào giỏ hàng:
+    - Từ trang chi tiết sản phẩm: chọn màu + size + số lượng → "Thêm vào giỏ hàng".
+    - Hệ thống kiểm tra nếu đã có item với cùng product_id + sku_id trong
+      giỏ → cộng thêm số lượng (không thêm dòng mới).
+    - Kiểm tra số lượng yêu cầu vs tồn kho (selectedSku.stock), cảnh báo
+      nếu vượt.
+
+  Xem giỏ hàng:
+    - Nhấn icon túi shopping trên Navbar → Drawer trượt ra từ phải.
+    - Hiển thị danh sách sản phẩm: ảnh thumbnail, tên, size/màu, giá,
+      số lượng.
+    - Tăng/giảm số lượng bằng nút +/-.
+    - Nút xóa từng item.
+    - Tổng tiền tự tính lại theo thời gian thực.
+    - Nút "Thanh toán" → chuyển đến /checkout.
+    - Nút "Tiếp tục mua sắm" → đóng Drawer.
+    - Badge đỏ trên icon giỏ hiển thị số lượng item.
+
+File liên quan: src/CartContext.tsx, src/components/CartDrawer.tsx
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 8: DANH SÁCH YÊU THÍCH (WISHLIST)              ║
+╚══════════════════════════════════════════════════════════════╝
+
+Mô tả nghiệp vụ:
+  Khách hàng lưu sản phẩm quan tâm để xem lại sau mà không cần đặt hàng
+  ngay. Trạng thái wishlist quản lý bằng WishlistContext.
+
+  Thêm/xóa khỏi wishlist:
+    - Nhấn nút trái tim trên ProductCard hoặc trang chi tiết sản phẩm.
+    - Nếu chưa đăng nhập → gọi API trực tiếp sẽ thất bại, nhưng vẫn
+      hiển thị trạng thái tạm (local state).
+    - Nếu đã đăng nhập → gọi POST /api/wishlist/:customerId/items hoặc
+      DELETE /api/wishlist/items/:itemId tùy trạng thái hiện tại.
+    - Icon trái tim đổi màu đỏ + fill nếu sản phẩm đang trong wishlist.
+
+  Trang /wishlist:
+    - Hiển thị toàn bộ sản phẩm đã lưu dạng grid.
+    - Mỗi sản phẩm có nút xóa khỏi wishlist.
+    - Nút "Thêm vào giỏ" trực tiếp từ wishlist.
+    - Nếu chưa đăng nhập → hiển thị thông báo yêu cầu đăng nhập.
+
+File liên quan: src/WishlistContext.tsx, src/pages/Wishlist.tsx
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 9: THANH TOÁN (CHECKOUT)                        ║
+╚══════════════════════════════════════════════════════════════╝
+
+Mô tả nghiệp vụ:
+  Trang /checkout chia làm 2 cột (7/5):
+
+  Cột trái — Form thanh toán:
+    - Section "Liên hệ": nhập email, checkbox nhận email quảng cáo.
+    - Section "Giao hàng":
+        + Dropdown chọn quốc gia (hiện chỉ có Việt Nam).
+        + Họ / Tên (2 ô riêng).
+        + Địa chỉ.
+        + Thành phố.
+        + Mã bưu điện (tùy chọn).
+        + Số điện thoại.
+    - Section "Phương thức vận chuyển":
+        + Placeholder thông báo nhập địa chỉ để xem phương thức vận chuyển.
+    - Section "Thanh toán":
+        + Thanh toán khi nhận hàng (COD) — mặc định active.
+        + Thẻ tín dụng — disabled, hiển thị "Sắp ra mắt".
+    - Nút "Đặt hàng ngay" (có icon khóa bảo mật).
+
+  Cột phải — Tóm tắt đơn hàng:
+    - Danh sách sản phẩm trong giỏ: ảnh thumbnail (với badge số lượng
+      góc trên phải), tên, size/màu, giá thành.
+    - Ô nhập mã giảm giá:
+        + Nhấn "Áp dụng" → Frontend gọi GET /api/vouchers lấy tất cả,
+          tìm voucher theo code (case-insensitive toUpperCase).
+        + Kiểm tra min_order_value: nếu totalPrice < min_order_value
+          → hiển thị lỗi "Đơn hàng tối thiểu Xđ để áp dụng mã này".
+        + Nếu hợp lệ → lưu appliedVoucher vào state, hiển thị "Đã áp
+          dụng mã: CODE".
+        + Tính discount_amount:
+            - Nếu discount_type = 'percentage': amount = total * rate / 100,
+              sau đó min(amount, max_discount_amount).
+            - Nếu discount_type = 'fixed': amount = discount_value.
+    - Dòng "Tạm tính", "Vận chuyển" (miễn phí nếu total > 2.000.000đ,
+      ngược lại 30.000đ), "Giảm giá" (nếu có voucher).
+    - Tổng cộng cuối cùng (có ghi chú "Bao gồm VAT").
+
+File liên quan: src/pages/Checkout.tsx
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 10: QUẢN LÝ TÀI KHOẢN CÁ NHÂN                 ║
+╚══════════════════════════════════════════════════════════════╝
+
+Mô tả nghiệp vụ:
+  Sau khi đăng nhập, trang /account hiển thị giao diện quản lý với
+  Sidebar điều hướng bên trái và nội dung chính bên phải.
+
+  Sidebar bao gồm:
+    - Avatar (chữ cái đầu tên) + Tên + Email.
+    - Menu: Hồ sơ của tôi / Đơn hàng (có badge số đơn) / Yêu thích /
+      Cài đặt / Đăng xuất (màu đỏ).
+
+  Tab "Hồ sơ của tôi":
+    - Hiển thị dạng lưới thông tin: Họ tên, Email, SĐT, Ngày sinh,
+      Địa chỉ, Giới tính, Ngày tham gia.
+    - Phần "Đơn hàng gần đây": hiển thị 2 đơn mới nhất với mã đơn,
+      ngày đặt, tổng tiền và icon trạng thái màu tương ứng.
+
+  Tab "Đơn hàng" (Lịch sử mua hàng):
+    - Gọi GET /api/orders?customer_id=X để lấy toàn bộ đơn hàng của
+      khách này.
+    - Mỗi đơn hiển thị dạng thẻ: header (mã đơn, ngày, tổng tiền,
+      badge trạng thái) + danh sách sản phẩm (ảnh, tên, size/màu,
+      số lượng, giá).
+    - Icon trạng thái màu: Xanh lá (Hoàn thành), Xanh dương (Đang xử
+      lý), Tím (Đang vận chuyển), Vàng (Chờ), Đỏ (Đã hủy).
+
+  Tab "Cài đặt":
+    - Section "Chỉnh sửa thông tin cá nhân": form inline với 3 trường
+      có thể sửa (Họ tên, SĐT, Địa chỉ). Nút "Lưu thay đổi" gọi
+      PUT /api/customers/:id. Hiển thị thông báo thành công 3 giây rồi tắt.
+    - Section "Đổi mật khẩu": form với 2 ô (mật khẩu hiện tại, mới).
+    - Nút "Đăng xuất" → xóa user khỏi AuthContext và localStorage,
+      chuyển về trang đăng nhập.
+
+File liên quan: src/pages/Account.tsx, src/AuthContext.tsx
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4.2. PHÍA QUẢN TRỊ VIÊN (ADMIN)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Lưu ý: Tất cả trang Admin đều kiểm tra isAdmin từ AuthContext. Nếu
+người dùng không phải Admin (isAdmin = false) → tự động redirect về
+/account bằng <Navigate to="/account" />.
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 11: QUẢN LÝ SẢN PHẨM (ADMIN)                   ║
+╚══════════════════════════════════════════════════════════════╝
+
+Trang: /admin/products
+
+Giao diện:
+  - Sidebar cố định bên trái (dark theme): Logo, menu Đơn hàng / Sản
+    phẩm (active) / Khách hàng / Báo cáo.
+  - Header: tên + avatar Admin.
+  - Nội dung chính: tiêu đề, tổng số sản phẩm, nút "Thêm sản phẩm mới".
+  - Bảng danh sách sản phẩm.
+
+Danh sách sản phẩm:
+  - Khi load, gọi đồng thời 4 API: GET /api/products, GET /api/categories,
+    GET /api/brands, GET /api/catalog/sizes, GET /api/catalog/colors.
+  - Bảng hiển thị: ID (kèm ảnh thumbnail 40px), Tên + chất liệu, Danh
+    mục (badge) + badge "Đã ẩn" nếu is_deleted=true, Giá niêm yết,
+    Trạng thái kho, Nút Sửa + Nút Ẩn/Khôi phục.
+  - Ô tìm kiếm lọc theo tên hoặc mô tả sản phẩm (client-side, realtime).
+  - Nút ẩn (xóa mềm) có màu đỏ; nút khôi phục có màu xanh lá.
+
+Thêm sản phẩm mới (Modal):
+  Nhấn "Thêm sản phẩm mới" → Modal trượt lên từ dưới (Spring animation).
+  Form gồm:
+    - Tên sản phẩm (bắt buộc).
+    - Danh mục (dropdown, load từ API).
+    - Thương hiệu (dropdown + nút "Thêm/Quản lý" mở Brand Modal riêng).
+    - Giới tính (Nam / Nữ / Unisex).
+    - Giá cơ bản (số, bắt buộc).
+    - Chất liệu (bắt buộc).
+    - Mô tả (textarea, bắt buộc).
+    - Khu vực ảnh: hiển thị ảnh đã thêm dạng lưới 140px×140px, hover
+      thấy nút xóa và nút "Ảnh bìa" (set is_primary=true); nút thêm ảnh
+      mới (kéo thả hoặc click để chọn file — đọc bằng FileReader thành
+      base64 để preview).
+    - Khu vực SKU: bảng các biến thể, mỗi dòng có: dropdown Size,
+      dropdown Màu, ô nhập Mã SKU, ô nhập Tồn kho, nút xóa. Nút "Thêm
+      SKU" thêm dòng mới vào mảng skusForm.
+
+  Khi nhấn "Tạo sản phẩm":
+    1. POST /api/products với thông tin cơ bản → nhận product_id mới.
+    2. Với mỗi SKU trong skusForm → POST /api/product-skus.
+    3. Với mỗi ảnh trong imagesForm → POST /api/product-images.
+    4. Reload danh sách sản phẩm.
+
+Sửa sản phẩm:
+  Nhấn nút Sửa → load thêm SKUs và Images của sản phẩm đó từ API,
+  mở cùng Modal với dữ liệu đã điền sẵn.
+  Khi nhấn "Cập nhật sản phẩm":
+    1. PUT /api/products/:id với thông tin cơ bản.
+    2. So sánh SKUs hiện tại với SKUs trong form: xóa những SKU không
+       còn trong form (DELETE /api/product-skus/:id); cập nhật hoặc
+       tạo mới còn lại.
+    3. Tương tự với Images.
+
+Ẩn / Khôi phục sản phẩm (Soft Delete):
+  - Nhấn nút Ẩn → confirm dialog → DELETE /api/products/:id (set
+    is_deleted=TRUE, không xóa vật lý).
+  - Nhấn nút Khôi phục → confirm → PATCH /api/products/:id/restore
+    (set is_deleted=FALSE).
+
+Quản lý thương hiệu (Brand Modal):
+  Mở từ nút "Thêm/Quản lý" trong form sản phẩm. Chia 2 cột:
+    - Trái: form thêm/sửa thương hiệu (tên, logo URL, mô tả).
+    - Phải: danh sách thương hiệu hiện có, mỗi item có nút Sửa và Xóa.
+  Khi thêm/sửa → gọi API tương ứng → reload danh sách trong dropdown.
+
+File liên quan: src/pages/AdminProducts.tsx
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 12: QUẢN LÝ ĐƠN HÀNG (ADMIN)                   ║
+╚══════════════════════════════════════════════════════════════╝
+
+Trang: /admin/orders
+
+Danh sách đơn hàng:
+  - Gọi GET /api/orders để lấy tất cả đơn hàng (kèm tên khách, email,
+    mã voucher qua JOIN).
+  - Tabs lọc trạng thái: Tất cả / Chờ thanh toán / Đang giao hàng /
+    Hoàn thành / Đã hủy.
+  - Ô tìm kiếm: lọc theo mã đơn, tên khách hoặc địa chỉ giao hàng.
+  - Bảng: Mã ĐH (click để xem chi tiết), Ngày tạo, Tên khách, Tổng
+    tiền, Badge trạng thái (màu sắc theo trạng thái), Nút Sửa + Xóa.
+  - Phân trang mockup (hiển thị số trang).
+  - Nút "Tạo đơn hàng mới" → chuyển sang giao diện tạo đơn.
+
+Chi tiết đơn hàng (Drawer):
+  - Click mã đơn → Drawer trượt từ phải (max-width 580px, chiếm toàn
+    chiều cao màn hình).
+  - Hiển thị: Thông tin khách hàng (tên, email, địa chỉ giao hàng),
+    Danh sách sản phẩm (ảnh, tên, size/màu, số lượng, giá), Phần cập
+    nhật trạng thái.
+  - Grid 5 nút trạng thái: Chờ thanh toán / Đang xử lý / Đang giao
+    hàng / Đã giao hàng / Đã hủy. Trạng thái hiện tại có viền đậm.
+    Khi click → PUT /api/orders/:id/status.
+    Đặc biệt: khi set thành "Canceled" → Backend tự động hoàn trả
+    tồn kho cho tất cả items trong đơn.
+  - Hiển thị giảm giá (nếu có), tổng cộng, nút "In hóa đơn".
+  - Click vùng tối bên ngoài → đóng Drawer.
+
+Tạo đơn hàng mới (Admin):
+  - Trang tạo đơn inline (không dùng modal).
+  - Bước 1: Chọn khách hàng từ dropdown (load từ GET /api/customers).
+    Sau khi chọn, hiển thị thông tin chi tiết: SĐT, Email, Địa chỉ.
+  - Bước 2: Chọn sản phẩm:
+    + Dropdown hiển thị tên sản phẩm + size/màu (load từ
+      GET /api/product-skus join với allProducts).
+    + Nhấn "Chọn" → thêm vào bảng items. Nếu cùng SKU → tăng số lượng.
+    + Bảng items: tên SP, size/màu, bộ điều chỉnh số lượng (+/-), đơn
+      giá, thành tiền, nút xóa.
+    + Tự tính tổng số lượng và tổng tiền.
+  - Nhấn "Xác nhận tạo Đơn hàng" → POST /api/orders với:
+      customer_id, total_amount, status='Pending', shipping_address
+      (lấy từ thông tin khách), payment_method='COD', items[].
+
+File liên quan: src/pages/AdminOrders.tsx
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 13: QUẢN LÝ KHÁCH HÀNG (ADMIN)                 ║
+╚══════════════════════════════════════════════════════════════╝
+
+Trang: /admin/customers
+
+  - Gọi GET /api/customers để lấy danh sách khách hàng.
+  - Bảng hiển thị: ID, Tên, Email, SĐT, Địa chỉ, Ngày đăng ký,
+    Trạng thái (Active/Inactive/Banned).
+  - Ô tìm kiếm: lọc theo tên hoặc email (client-side).
+  - Xem chi tiết: click để mở panel thông tin chi tiết.
+  - Có thể xóa khách hàng (DELETE /api/customers/:id) — cascade xóa
+    toàn bộ dữ liệu liên quan.
+
+File liên quan: src/pages/AdminCustomers.tsx
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4.3. PHÍA BACKEND API
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 14: KIẾN TRÚC RESTFUL API                       ║
+╚══════════════════════════════════════════════════════════════╝
+
+Backend cung cấp đầy đủ các endpoint theo chuẩn REST. Tất cả response
+đều là JSON. Tất cả route được mount tại prefix /api/.
+
++-----+-------------------------------+----------------------------------------+
+| STT | Nhóm Route                    | Endpoint tiêu biểu                     |
++-----+-------------------------------+----------------------------------------+
+|  1  | /api/auth                     | POST /login, POST /register            |
+|  2  | /api/products                 | GET / (filter), GET /:id, POST /,      |
+|     |                               | PUT /:id, DELETE /:id,                 |
+|     |                               | PATCH /:id/restore                     |
+|  3  | /api/product-skus             | GET /, POST /, PUT /:id, DELETE /:id   |
+|  4  | /api/product-images           | GET /, POST /, PUT /:id, DELETE /:id   |
+|  5  | /api/categories               | GET /, GET /:id                        |
+|  6  | /api/brands                   | GET /, POST /, PUT /:id, DELETE /:id   |
+|  7  | /api/catalog/sizes            | GET /sizes (từ bảng SIZES)             |
+|  8  | /api/catalog/colors           | GET /colors (từ bảng COLORS)           |
+|  9  | /api/catalog/goals            | GET /goals (từ FITNESS_GOALS)          |
+| 10  | /api/orders                   | GET /, GET /:id, POST /,               |
+|     |                               | PUT /:id/status, DELETE /:id           |
+| 11  | /api/customers                | GET /, GET /:id, PUT /:id, DELETE /:id |
+| 12  | /api/carts/:customerId        | GET, DELETE (xóa giỏ)                 |
+|     | /api/carts/:customerId/items  | POST (thêm item)                       |
+|     | /api/carts/items/:itemId      | PUT (sửa qty), DELETE (xóa item)       |
+| 13  | /api/wishlist/:customerId     | GET, POST /items, DELETE /items/:id    |
+| 14  | /api/vouchers                 | GET /, GET /validate/:code             |
+| 15  | /api/reviews                  | GET /?product_id, POST /              |
+| 16  | /api/payments                 | GET /?order_id                         |
+| 17  | /api/shipping                 | GET /?order_id                         |
+| 18  | /api/staff                    | GET /, POST /                          |
++-----+-------------------------------+----------------------------------------+
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 15: XỬ LÝ ĐẶT HÀNG VỚI TRANSACTION            ║
+║  VÀ PESSIMISTIC LOCKING                                     ║
+╚══════════════════════════════════════════════════════════════╝
+
+Đây là chức năng nghiệp vụ phức tạp nhất, được thực hiện trong
+POST /api/orders. Sử dụng Database Transaction (InnoDB) kết hợp
+Pessimistic Locking để đảm bảo toàn vẹn dữ liệu.
+
+Quy trình xử lý (7 bước trong 1 Transaction):
+
+  BƯỚC 1 — Khóa + Kiểm tra tồn kho (Pessimistic Locking):
+    Với mỗi item trong đơn hàng:
+      SELECT sku_id, stock FROM PRODUCT_SKUS
+      WHERE sku_id = ? AND is_deleted = FALSE FOR UPDATE
+    - FOR UPDATE: khóa row-level trên mỗi SKU. Transaction khác muốn
+      đọc/ghi SKU này phải CHỜ cho đến khi transaction hiện tại kết thúc.
+    - Nếu SKU không tồn tại → ROLLBACK + trả lỗi 400.
+    - Nếu stock < quantity → ROLLBACK + trả lỗi 409 (Conflict) kèm
+      thông tin tồn kho thực tế.
+
+  BƯỚC 2 — Tính tổng tiền:
+    Cộng dồn price_at_order × quantity cho tất cả items.
+
+  BƯỚC 3 — Tạo bản ghi đơn hàng:
+    INSERT INTO ORDERS (customer_id, staff_id, voucher_id, total_amount,
+    discount_amount, shipping_address, payment_method)
+    → Lấy order_id vừa tạo (insertId).
+
+  BƯỚC 4 — Ghi items + Trừ tồn kho:
+    Với mỗi item:
+      a) INSERT INTO ORDER_ITEMS (order_id, sku_id, quantity, price_at_order)
+      b) UPDATE PRODUCT_SKUS SET stock = stock - quantity
+         WHERE sku_id = ? AND stock >= quantity
+         → Double-check: nếu affectedRows = 0 (race condition thoát
+         khỏi lock) → ROLLBACK + trả lỗi 409.
+
+  BƯỚC 5 — Cập nhật lượt dùng voucher:
+    Nếu có voucher_id → UPDATE VOUCHERS SET used_count = used_count + 1.
+
+  BƯỚC 6 — Tạo bản ghi thanh toán:
+    INSERT INTO PAYMENTS (order_id, amount, status='Pending')
+    Với amount = total_amount - discount_amount.
+
+  BƯỚC 7 — Tạo bản ghi vận chuyển + Xóa giỏ hàng:
+    INSERT INTO SHIPPING (order_id, shipping_method, shipping_fee)
+    shipping_fee = 0 nếu total >= 2.000.000đ, ngược lại = 30.000đ.
+    DELETE FROM CART_ITEMS WHERE cart_id = (SELECT cart_id FROM CARTS
+    WHERE customer_id = ?)
+
+  Nếu tất cả thành công → COMMIT → trả về 201 {order_id}.
+  Nếu bất kỳ bước nào lỗi → ROLLBACK → không có gì thay đổi trong DB.
+
+Xử lý hủy đơn hàng (hoàn kho):
+  PUT /api/orders/:id/status với status='Canceled':
+    → Lấy tất cả ORDER_ITEMS của đơn.
+    → UPDATE PRODUCT_SKUS SET stock = stock + quantity cho từng item.
+    → Đảm bảo tồn kho được hoàn trả chính xác khi đơn bị hủy.
+
+File liên quan: backend-gym/src/routes/orders.js
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 16: MÃ HÓA MẬT KHẨU (BCRYPT)                  ║
+╚══════════════════════════════════════════════════════════════╝
+
+  - Khi đăng ký: bcrypt.hash(password, 10) → lưu password_hash vào DB.
+  - Khi đăng nhập: bcrypt.compare(password, hash) → xác thực.
+  - Mật khẩu gốc không bao giờ được lưu hoặc log.
+  - Salt rounds = 10 cân bằng giữa bảo mật và hiệu năng.
+
+File liên quan: backend-gym/src/routes/auth.js
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 17: KIỂM TRA VÀ ÁP DỤNG VOUCHER                ║
+╚══════════════════════════════════════════════════════════════╝
+
+Quy trình kiểm tra voucher tại Frontend (Checkout.tsx):
+  1. Gọi GET /api/vouchers để lấy tất cả vouchers.
+  2. Tìm voucher theo code (so sánh case-insensitive với toUpperCase).
+  3. Kiểm tra min_order_value: nếu totalPrice < min_order_value → lỗi.
+  4. Tính discountAmount theo discount_type:
+       - 'percentage': amount = total × rate / 100, bị giới hạn bởi
+         max_discount_amount nếu có.
+       - 'fixed': amount = discount_value.
+  5. Hiển thị số tiền được giảm và tổng cuối.
+
+Khi tạo đơn hàng (Backend):
+  - voucher_id được gửi lên cùng dữ liệu đơn hàng.
+  - Backend tự tăng used_count + 1 trong transaction.
+
+File liên quan: src/pages/Checkout.tsx, backend-gym/src/routes/vouchers.js
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 18: MEGA MENU ĐIỀU HƯỚNG DANH MỤC              ║
+╚══════════════════════════════════════════════════════════════╝
+
+  Navbar có 3 mục chính: Nam / Nữ / Phụ kiện.
+  Hover vào mục → MegaMenu xuất hiện (animation fade + slide down).
+
+  MegaMenu chia 2 cột:
+    - Trái (280px): danh sách sections (VD: "Sản phẩm"). Hover vào
+      section → cột phải cập nhật.
+    - Phải: grid 3 cột các item trong section đang active.
+      VD: Nam > Sản phẩm → ["Áo T-Shirts", "Quần Shorts", "Áo Hoodies",
+      "Áo Tank Tops"].
+    - Mỗi item là <Link> đến:
+      /category/{gender}/{encodeURIComponent(section)}/{encodeURIComponent(item)}
+
+  Dữ liệu menu:
+    - men: Sản phẩm → [Áo T-Shirts, Quần Shorts, Áo Hoodies, Áo Tank Tops]
+    - women: Sản phẩm → [Quần Leggings, Quần Shorts, Áo Khoác, Áo Hoodies,
+                          Áo Sports Bras]
+    - accessories: Sản phẩm → [Balo, Giày, Tất (Vớ), Dụng cụ tập luyện,
+                                 Mũ nón, Bình nước]
+
+  MegaMenu đóng khi onMouseLeave.
+
+File liên quan: src/components/MegaMenu.tsx, src/components/Navbar.tsx
+
+
+╔══════════════════════════════════════════════════════════════╗
+║  CHỨC NĂNG 19: LỌC VÀ SẮP XẾP SẢN PHẨM                   ║
+╚══════════════════════════════════════════════════════════════╝
+
+  Được thực hiện tại ProductListing component (dùng trên nhiều trang):
+    - Lọc theo giới tính (checkbox): men / women / unisex.
+    - Lọc theo size (checkbox): load từ GET /api/catalog/sizes.
+    - Lọc theo màu sắc (checkbox): load từ GET /api/catalog/colors.
+    - Sắp xếp theo giá: Thấp → Cao / Cao → Thấp.
+    - Tất cả lọc thực hiện phía client (trên mảng products đã fetch).
+    - Sidebar filter có thể ẩn/hiện trên mobile.
+
+File liên quan: src/components/ProductListing.tsx
+
+
+═══════════════════════════════════════════════════════════════
+          CHƯƠNG 5: KẾT LUẬN
+═══════════════════════════════════════════════════════════════
+
+5.1. Kết quả đạt được
+
+- Xây dựng thành công hệ thống website thương mại điện tử 3 lớp hoàn
+  chỉnh với 22 bảng dữ liệu được thiết kế chuẩn hóa.
+- Frontend React SPA với giao diện hiện đại, responsive mobile/tablet/
+  desktop, animation mượt mà bằng Framer Motion.
+- 19 chức năng được cài đặt đầy đủ, từ quản lý sản phẩm, đặt hàng,
+  giỏ hàng, wishlist đến toàn bộ Admin Panel.
+- Backend API RESTful 18 nhóm route phủ đầy đủ CRUD cho tất cả bảng.
+- Xử lý đặt hàng an toàn với Database Transaction (7 bước) + Pessimistic
+  Locking (SELECT...FOR UPDATE) ngăn race condition tồn kho.
+- Soft delete sản phẩm đảm bảo không phá vỡ lịch sử đơn hàng.
+- Mã hóa mật khẩu bcrypt, lưu giá tại thời điểm đặt hàng đảm bảo
+  tính chính xác dữ liệu lịch sử.
+
+
+5.2. Hạn chế
+
+- Chưa triển khai xác thực bằng JWT Token (hiện dùng localStorage đơn
+  giản — không đủ bảo mật cho môi trường production).
+- Chưa có chức năng upload ảnh sản phẩm lên server/cloud (hiện dùng
+  URL ảnh bên ngoài, preview base64 chưa lưu được).
+- Chưa tích hợp cổng thanh toán trực tuyến (chỉ hỗ trợ COD).
+- Trang checkout chưa thực sự gọi API POST /api/orders (form chưa kết
+  nối hoàn toàn với backend).
+- Chưa có phân trang thực sự ở Admin (hiện chỉ là mockup).
+- Chưa có tính năng thông báo realtime (websocket) khi đơn hàng thay
+  đổi trạng thái.
+
+
+5.3. Hướng phát triển
+
+- Tích hợp JWT Authentication + Refresh Token cho bảo mật API.
+- Upload ảnh sản phẩm lên cloud storage (AWS S3, Cloudinary).
+- Tích hợp thanh toán qua VNPay / MoMo / ZaloPay.
+- Kết nối hoàn toàn Checkout → POST /api/orders.
+- Thêm Stored Procedures cho các tác vụ phức tạp, Views cho báo cáo
+  doanh thu, Triggers để log thay đổi.
+- Triển khai (deploy) lên server thực tế (VPS / Render / Railway).
+- Thêm tính năng thông báo realtime khi đơn hàng thay đổi trạng thái.
+- Dashboard Admin với biểu đồ doanh thu, sản phẩm bán chạy.
+
+
+═══════════════════════════════════════════════════════════════
+          PHỤ LỤC: TÀI KHOẢN THỬ NGHIỆM
+═══════════════════════════════════════════════════════════════
+
++--------------+----------------------------------------------+
+| Vai trò      | Thông tin đăng nhập                          |
++--------------+----------------------------------------------+
+| Admin        | username: admin     / password: admin123     |
++--------------+----------------------------------------------+
+| Khách hàng   | email: test@example.com / password: password |
++--------------+----------------------------------------------+
+
+URL truy cập:
+  - Frontend (Khách hàng): http://localhost:3000
+  - Admin Panel:            http://localhost:3000/admin/products
+  - Backend API:            http://localhost:5000/api
