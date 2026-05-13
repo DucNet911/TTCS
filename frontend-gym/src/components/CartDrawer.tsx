@@ -47,6 +47,8 @@ export const CartDrawer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
               ) : (
                 cart.map((item, idx) => {
                   const productImage = item.product.primary_image || item.product.images?.[0]?.image_url;
+                  const skuPrice = item.sku?.price || item.product.base_price;
+                  const stock = item.sku?.stock || 999;
                   
                   return (
                     <div key={`${item.product.product_id}-${idx}`} className="flex gap-4">
@@ -69,11 +71,11 @@ export const CartDrawer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                           <div className="flex justify-between items-start">
                             <h3 className="text-[13px] font-black uppercase leading-tight max-w-[180px]">{item.product.name}</h3>
                             <span className="text-[13px] font-bold">
-                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.product.base_price)}
+                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(skuPrice)}
                             </span>
                           </div>
                           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                            {(item.product.category_id !== 3 && item.product.category_id !== 4) ? `${item.size || 'Cỡ chuẩn'} • ` : ''}{item.color || 'Mặc định'}
+                            {item.size ? `${item.size}` : ''}{item.size && item.color ? ' • ' : ''}{item.color || ''}
                           </p>
                         </div>
                         
@@ -87,8 +89,14 @@ export const CartDrawer = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                             </button>
                             <span className="w-6 text-center text-[11px] font-black">{item.quantity}</span>
                             <button 
-                              onClick={() => updateQuantity(item.product.product_id, item.quantity + 1, item.size, item.color)}
-                              className="p-1.5 hover:opacity-60"
+                              onClick={() => {
+                                if (item.quantity >= stock) {
+                                  return;
+                                }
+                                updateQuantity(item.product.product_id, item.quantity + 1, item.size, item.color);
+                              }}
+                              disabled={item.quantity >= stock}
+                              className={`p-1.5 ${item.quantity >= stock ? 'opacity-30 cursor-not-allowed' : 'hover:opacity-60'}`}
                             >
                               <Plus size={12} />
                             </button>

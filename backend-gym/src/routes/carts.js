@@ -41,6 +41,12 @@ router.post('/:customerId/items', async (req, res) => {
   try {
     const { sku_id, quantity } = req.body;
     if (!sku_id) return res.status(400).json({ error: 'sku_id là bắt buộc' });
+    const addQty = quantity || 1;
+
+    // Kiểm tra tồn kho
+    const [skuRows] = await pool.query('SELECT stock FROM PRODUCT_SKUS WHERE sku_id = ?', [sku_id]);
+    if (skuRows.length === 0) return res.status(404).json({ error: 'Không tìm thấy SKU' });
+    const stock = skuRows[0].stock;
 
     // Tìm hoặc tạo giỏ hàng
     let [carts] = await pool.query('SELECT cart_id FROM CARTS WHERE customer_id = ?', [req.params.customerId]);
@@ -54,15 +60,22 @@ router.post('/:customerId/items', async (req, res) => {
     const [existing] = await pool.query('SELECT * FROM CART_ITEMS WHERE cart_id = ? AND sku_id = ?', [cartId, sku_id]);
     
     if (existing.length > 0) {
+      const newQty = existing[0].quantity + addQty;
+      if (newQty > stock) {
+        return res.status(400).json({ error: `Không thể thêm. Trong giỏ đã có ${existing[0].quantity}, kho chỉ còn ${stock} sản phẩm.` });
+      }
       // Tăng số lượng
-      await pool.query('UPDATE CART_ITEMS SET quantity = quantity + ? WHERE cart_item_id = ?', 
-        [quantity || 1, existing[0].cart_item_id]);
+      await pool.query('UPDATE CART_ITEMS SET quantity = ? WHERE cart_item_id = ?', 
+        [newQty, existing[0].cart_item_id]);
       res.json({ message: 'Cập nhật số lượng trong giỏ hàng' });
     } else {
+      if (addQty > stock) {
+        return res.status(400).json({ error: `Số lượng vượt quá tồn kho. Kho chỉ còn ${stock} sản phẩm.` });
+      }
       // Thêm mới
       const [result] = await pool.query(
         'INSERT INTO CART_ITEMS (cart_id, sku_id, quantity) VALUES (?, ?, ?)',
-        [cartId, sku_id, quantity || 1]
+        [cartId, sku_id, addQty]
       );
       res.status(201).json({ message: 'Thêm vào giỏ hàng thành công', cart_item_id: result.insertId });
     }
@@ -77,8 +90,18 @@ router.put('/items/:itemId', async (req, res) => {
     const { quantity } = req.body;
     if (!quantity || quantity < 1) return res.status(400).json({ error: 'Số lượng phải >= 1' });
 
+    // Kiểm tra tồn kho trước khi cập nhật
+    const [itemRows] = await pool.query(
+      `SELECT ci.sku_id, ps.stock FROM CART_ITEMS ci
+       JOIN PRODUCT_SKUS ps ON ci.sku_id = ps.sku_id
+       WHERE ci.cart_item_id = ?`, [req.params.itemId]
+    );
+    if (itemRows.length === 0) return res.status(404).json({ error: 'Không tìm thấy item' });
+    if (quantity > itemRows[0].stock) {
+      return res.status(400).json({ error: `Số lượng vượt quá tồn kho. Kho chỉ còn ${itemRows[0].stock} sản phẩm.` });
+    }
+
     const [result] = await pool.query('UPDATE CART_ITEMS SET quantity = ? WHERE cart_item_id = ?', [quantity, req.params.itemId]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Không tìm thấy item' });
     res.json({ message: 'Cập nhật số lượng thành công' });
   } catch (err) {
     res.status(500).json({ error: err.message });

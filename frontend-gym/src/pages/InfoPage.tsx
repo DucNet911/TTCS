@@ -55,8 +55,8 @@ const PAGE_DATA: Record<string, PageContent> = {
           <section>
             <h3 className="text-sm font-black uppercase tracking-widest mb-4">Quy trình đổi trả</h3>
             <p className="text-sm text-gray-600 font-medium leading-relaxed">
-              1. Liên hệ với bộ phận chăm sóc khách hàng qua Trung tâm hỗ trợ.<br/>
-              2. Đóng gói sản phẩm cẩn thận kèm theo hóa đơn.<br/>
+              1. Liên hệ với bộ phận chăm sóc khách hàng qua Trung tâm hỗ trợ.<br />
+              2. Đóng gói sản phẩm cẩn thận kèm theo hóa đơn.<br />
               3. Gửi sản phẩm về địa chỉ kho của chúng tôi hoặc mang trực tiếp đến cửa hàng gần nhất.
             </p>
           </section>
@@ -96,7 +96,7 @@ const PAGE_DATA: Record<string, PageContent> = {
         <div className="mt-12 p-8 bg-brand-light rounded-sm">
           <h3 className="text-sm font-black uppercase tracking-widest mb-4">Thông tin liên hệ</h3>
           <p className="text-sm text-gray-600 font-medium">Email: support@fitgear.com</p>
-          <p className="text-sm text-gray-600 font-medium">Hotline: 1900 1234 (8:00 - 22:00 hàng ngày)</p>
+          <p className="text-sm text-gray-600 font-medium">Hotline: 0976 065 759 (8:00 - 22:00 hàng ngày)</p>
         </div>
       </div>
     )
@@ -133,8 +133,8 @@ const PAGE_DATA: Record<string, PageContent> = {
           <section>
             <h3 className="text-sm font-black uppercase tracking-widest mb-4">Làm thế nào để nhận ưu đãi?</h3>
             <p className="text-sm text-gray-600 font-medium leading-relaxed">
-              1. Đăng ký tài khoản FITGEAR bằng email sinh viên (.edu).<br/>
-              2. Xác thực thẻ sinh viên qua hệ thống đối tác của chúng tôi.<br/>
+              1. Đăng ký tài khoản FITGEAR bằng email sinh viên (.edu).<br />
+              2. Xác thực thẻ sinh viên qua hệ thống đối tác của chúng tôi.<br />
               3. Nhận mã giảm giá 10% áp dụng cho mọi đơn hàng.
             </p>
           </section>
@@ -164,13 +164,13 @@ export const InfoPage = () => {
   }
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="min-h-screen bg-white pt-32 pb-20 px-4 md:px-10"
     >
       <div className="max-w-4xl mx-auto">
-        <button 
+        <button
           onClick={() => navigate('/')}
           className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-brand-dark mb-12 transition-colors"
         >

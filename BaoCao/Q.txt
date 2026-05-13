@@ -1,0 +1,423 @@
+===========================================================================
+  CÂU HỎI & TRẢ LỜI - HỆ THỐNG FITGEAR E-COMMERCE
+  Dự án: TTCS - Website thương mại điện tử thời trang thể thao
+  Stack: React + Node.js (Express) + MySQL 8.0
+===========================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CÂU 1: XỬ LÝ RACE CONDITION - 2 KHÁCH MUA CÙNG LÚC KHI KHO CHỈ CÒN 1
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Hệ thống sử dụng cơ chế Pessimistic Locking (Khóa bi quan) với câu lệnh
+SELECT ... FOR UPDATE của MySQL để xử lý tình huống này. Quy trình cụ thể:
+
+▸ BƯỚC 1 - Mở Transaction:
+  Khi khách A bấm "Đặt hàng", backend tạo một database transaction riêng biệt
+  bằng lệnh conn.beginTransaction(). Toàn bộ thao tác đặt hàng nằm trong
+  transaction này, đảm bảo tính nguyên tử (Atomicity) - tất cả hoặc không gì.
+
+▸ BƯỚC 2 - Khóa dòng dữ liệu (Row-Level Locking):
+  Hệ thống thực thi câu lệnh:
+    SELECT sku_id, stock FROM PRODUCT_SKUS WHERE sku_id = ? FOR UPDATE
+  Câu lệnh FOR UPDATE sẽ khóa dòng SKU đó ở mức hàng (row-level lock).
+  Nếu khách B cũng đặt đơn cùng lúc và thực thi SELECT FOR UPDATE trên cùng
+  dòng SKU → transaction của B sẽ bị CHẶN LẠI, phải CHỜ cho đến khi
+  transaction của A hoàn tất (COMMIT hoặc ROLLBACK).
+
+▸ BƯỚC 3 - Kiểm tra tồn kho:
+  Sau khi khóa được dòng, hệ thống kiểm tra: stock >= quantity yêu cầu?
+  - Nếu đủ: tiếp tục tạo đơn.
+  - Nếu không đủ: ROLLBACK, trả về lỗi HTTP 409 kèm thông báo chi tiết
+    số lượng còn lại và số lượng yêu cầu.
+
+▸ BƯỚC 4 - Trừ tồn kho an toàn (Double-Check):
+  Khi giảm tồn kho, hệ thống thực thi:
+    UPDATE PRODUCT_SKUS SET stock = stock - ? WHERE sku_id = ? AND stock >= ?
+  Điều kiện AND stock >= ? là lớp bảo vệ thứ 2. Nếu affectedRows = 0 (nghĩa
+  là trong khoảng thời gian cực ngắn giữa SELECT và UPDATE có thay đổi bất
+  thường), hệ thống sẽ ROLLBACK toàn bộ đơn hàng.
+
+▸ BƯỚC 5 - COMMIT hoặc ROLLBACK:
+  - Nếu mọi thứ thành công → COMMIT, giải phóng khóa.
+  - Nếu bất kỳ lỗi nào → ROLLBACK, hoàn tác tất cả, giải phóng khóa.
+
+★ KẾT QUẢ VỚI TÌNH HUỐNG 2 KHÁCH A VÀ B:
+  - Khách A gửi đơn trước → khóa dòng SKU → kiểm tra stock = 1 >= 1
+    → TẠO ĐƠN THÀNH CÔNG → stock giảm về 0 → COMMIT → giải phóng khóa.
+  - Khách B (đang chờ) → được giải phóng → SELECT FOR UPDATE đọc lại stock
+    → thấy stock = 0 < 1 → ROLLBACK → trả về lỗi "Sản phẩm vừa hết hàng".
+  ⟹ Chỉ khách A mua được, khách B nhận thông báo hết hàng. KHÔNG xảy ra
+     overselling (bán vượt tồn kho).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CÂU 2: ĐỒNG BỘ GIỎ HÀNG KHI ĐĂNG NHẬP TRÊN MÁY TÍNH KHÁC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Giỏ hàng của hệ thống FitGear được lưu trữ HOÀN TOÀN trên DATABASE phía
+server (MySQL), KHÔNG phụ thuộc vào trình duyệt hay thiết bị cụ thể nào.
+
+▸ CƠ CHẾ LƯU TRỮ:
+  Dữ liệu giỏ hàng được lưu trong 2 bảng MySQL:
+  - Bảng CARTS: Liên kết giỏ hàng với khách hàng qua customer_id (1-1).
+  - Bảng CART_ITEMS: Chứa các sản phẩm (sku_id, quantity) thuộc giỏ đó.
+
+  Mỗi khách hàng chỉ có DUY NHẤT 1 giỏ hàng (ràng buộc UNIQUE trên
+  customer_id trong bảng CARTS). Giỏ này tồn tại trên server, không liên
+  quan đến trình duyệt.
+
+▸ QUY TRÌNH KHI KHÁCH K ĐĂNG NHẬP TRÊN MÁY B:
+  1. K đăng nhập trên máy B → AuthContext lưu thông tin user vào localStorage
+     của máy B (chỉ chứa thông tin định danh, KHÔNG chứa giỏ hàng).
+  2. CartContext phát hiện user thay đổi → tự động gọi API:
+       GET /api/carts/{customer_id}
+  3. Backend truy vấn MySQL, JOIN các bảng CART_ITEMS + PRODUCT_SKUS +
+     PRODUCTS + SIZES + COLORS để trả về danh sách đầy đủ sản phẩm trong
+     giỏ kèm thông tin chi tiết (tên, giá, ảnh, size, màu, tồn kho).
+  4. Frontend nhận dữ liệu → hiển thị giỏ hàng X lên CartDrawer.
+
+  ⟹ Giỏ hàng X hiện lên NGUYÊN VẸN trên máy B vì dữ liệu nằm trên server,
+     không bị mất khi đăng xuất khỏi máy A.
+
+▸ KHI THAO TÁC VỚI GIỎ HÀNG (thêm/sửa/xóa):
+  Mọi thay đổi đều gọi API tương ứng → cập nhật trực tiếp vào MySQL
+  → sau đó reload lại giỏ hàng từ DB (loadCartFromDB). Điều này đảm bảo
+  dữ liệu trên mọi thiết bị luôn nhất quán với server.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CÂU 3: 1 TÀI KHOẢN ĐĂNG NHẬP ĐỒNG THỜI TRÊN 2 MÁY A VÀ B
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Trả lời ngắn: KHÔNG bị lỗi hệ thống, nhưng CÓ THỂ gây ra trải nghiệm
+không đồng bộ tạm thời giữa 2 máy.
+
+▸ TẠI SAO KHÔNG BỊ LỖI:
+  Hệ thống FitGear sử dụng xác thực STATELESS (không có session phía server).
+  Khi đăng nhập, server chỉ xác minh email/password → trả về thông tin user
+  → frontend lưu vào localStorage. Server KHÔNG theo dõi "ai đang online"
+  hay "bao nhiêu phiên đang mở". Do đó, tài khoản K hoàn toàn có thể đăng
+  nhập trên nhiều thiết bị cùng lúc mà không bị chặn.
+
+▸ NHỮNG GÌ CÓ THỂ XẢY RA:
+  1. Giỏ hàng: Nếu máy A thêm sản phẩm vào giỏ → dữ liệu lưu xuống MySQL
+     ngay lập tức. Tuy nhiên, máy B sẽ KHÔNG thấy thay đổi cho đến khi
+     tải lại trang hoặc thực hiện thao tác mới (vì giỏ hàng chỉ được load
+     từ DB khi đăng nhập hoặc khi có thao tác giỏ hàng).
+
+  2. Đặt hàng: Nếu cả 2 máy cùng đặt hàng → cơ chế Pessimistic Locking
+     (Câu 1) sẽ xử lý an toàn. Không bị trùng đơn, không bị bán vượt kho.
+
+  3. Cập nhật thông tin: Nếu máy A đổi tên/SĐT → chỉ máy A cập nhật giao
+     diện ngay. Máy B vẫn hiển thị thông tin cũ (từ localStorage) cho đến
+     khi đăng nhập lại.
+
+▸ VÌ SAO CHẤP NHẬN ĐƯỢC:
+  Đây là hành vi chuẩn của hầu hết các hệ thống e-commerce hiện đại (Shopee,
+  Lazada, Tiki...). Người dùng có thể đăng nhập cùng lúc trên điện thoại và
+  laptop. Dữ liệu quan trọng (đơn hàng, tồn kho) được bảo vệ ở tầng server
+  bằng transaction và locking, còn dữ liệu hiển thị sẽ được đồng bộ khi
+  refresh hoặc thao tác tiếp.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CÂU 4: TỐI ƯU HỆ THỐNG KHI CÓ HÀNG TRIỆU NGƯỜI TRUY CẬP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Để xử lý hàng triệu người truy cập đồng thời, hệ thống cần áp dụng nhiều
+chiến lược tối ưu ở các tầng khác nhau:
+
+▸ 1. TỐI ƯU TẦNG DATABASE:
+  a) Connection Pooling (đã triển khai):
+     Hệ thống sử dụng mysql2/promise createPool với connectionLimit = 10.
+     Thay vì tạo/đóng kết nối mới cho mỗi request, pool tái sử dụng các
+     kết nối sẵn có → giảm overhead đáng kể. Khi tải cao, có thể tăng
+     connectionLimit lên 50-100.
+
+  b) Đánh Index cho database:
+     Thêm INDEX trên các cột thường xuyên truy vấn (customer_id, sku_id,
+     order_date, status, email...) để tốc độ truy vấn từ O(n) xuống O(log n).
+
+  c) Read Replicas (Nhân bản đọc):
+     Tách riêng server DB: 1 Master (ghi) + nhiều Replica (đọc).
+     Các thao tác đọc (xem sản phẩm, tìm kiếm) chiếm ~80% traffic → phân
+     tải sang replica. Thao tác ghi (đặt hàng) → gửi về master.
+
+▸ 2. TỐI ƯU TẦNG BACKEND (SERVER):
+  a) Load Balancing:
+     Đặt một Load Balancer (Nginx, AWS ALB) phía trước nhiều instance
+     Node.js. Traffic được phân phối đều giữa các server → không server
+     nào bị quá tải.
+
+  b) Clustering Node.js:
+     Sử dụng module cluster hoặc PM2 để chạy nhiều process Node.js trên
+     cùng máy, tận dụng tối đa các nhân CPU.
+
+  c) Rate Limiting:
+     Giới hạn số request/giây từ mỗi IP để tránh spam/DDoS. Ví dụ: tối
+     đa 100 request/phút/IP.
+
+▸ 3. TỐI ƯU TẦNG CACHING (BỘ NHỚ ĐỆM):
+  a) Redis Cache:
+     Cache dữ liệu ít thay đổi: danh sách sản phẩm, danh mục, thương hiệu.
+     Khi có request → kiểm tra Redis trước → nếu có thì trả về ngay (< 1ms)
+     thay vì truy vấn MySQL (10-50ms).
+
+  b) CDN (Content Delivery Network):
+     Đưa hình ảnh sản phẩm, file CSS/JS lên CDN (CloudFlare, AWS CloudFront).
+     CDN có server ở nhiều vùng → người dùng tải tài nguyên từ server gần
+     nhất → giảm độ trễ và giảm tải cho server gốc.
+
+▸ 4. TỐI ƯU TẦNG FRONTEND:
+  a) Lazy Loading: Chỉ tải hình ảnh khi người dùng cuộn đến.
+  b) Code Splitting: Tách code theo trang, chỉ tải JS cần thiết.
+  c) Pagination/Infinite Scroll: Không tải toàn bộ sản phẩm cùng lúc.
+
+▸ 5. KIẾN TRÚC MỞ RỘNG (SCALING):
+  a) Horizontal Scaling: Thêm server khi tải tăng (auto-scaling trên cloud).
+  b) Message Queue (RabbitMQ, Kafka): Xử lý các tác vụ nặng (gửi email,
+     thông báo) bất đồng bộ, không block request chính.
+  c) Microservices: Tách hệ thống thành các dịch vụ nhỏ độc lập (Auth
+     Service, Product Service, Order Service...) để scale riêng từng phần.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CÂU 5: BẢO MẬT HỆ THỐNG - PHÒNG CHỐNG TẤN CÔNG WEB
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+▸ 1. CHỐNG SQL INJECTION (đã triển khai):
+  Tất cả các truy vấn SQL trong hệ thống đều sử dụng Parameterized Queries
+  (câu truy vấn tham số hóa) với dấu hỏi (?):
+    pool.query('SELECT * FROM CUSTOMERS WHERE email = ?', [email])
+  Giá trị email được truyền riêng biệt, KHÔNG nối chuỗi trực tiếp vào SQL.
+  → MySQL tự động escape các ký tự đặc biệt → kẻ tấn công không thể chèn
+  mã SQL độc hại (ví dụ: ' OR 1=1 --) vào câu truy vấn.
+
+▸ 2. MÃ HÓA MẬT KHẨU (đã triển khai):
+  Mật khẩu được mã hóa bằng thư viện bcryptjs với salt rounds = 10 trước
+  khi lưu vào database:
+    bcrypt.hash(password, 10)
+  Khi đăng nhập, so sánh bằng bcrypt.compare() thay vì so sánh chuỗi trực
+  tiếp. Ngay cả khi database bị lộ, kẻ tấn công cũng không thể đọc được
+  mật khẩu gốc vì bcrypt là hàm băm một chiều (one-way hash) không thể
+  giải mã ngược.
+
+▸ 3. KIỂM SOÁT DỮ LIỆU ĐẦU VÀO (đã triển khai):
+  - Kiểm tra dữ liệu bắt buộc trước khi xử lý (if (!email || !password)).
+  - Kiểm tra email trùng lặp khi đăng ký.
+  - Kiểm tra tồn kho trước khi đặt hàng/thêm giỏ hàng.
+  - Kiểm tra trạng thái chuyển đổi hợp lệ của đơn hàng (validTransitions).
+  → Ngăn chặn dữ liệu bất hợp lệ hoặc thao tác trái phép.
+
+▸ 4. CHỐNG XSS (Cross-Site Scripting):
+  React tự động escape tất cả nội dung hiển thị qua JSX (innerHTML được
+  sanitize). Nếu kẻ tấn công chèn mã <script>alert('hack')</script> vào
+  tên sản phẩm hoặc bình luận, React sẽ hiển thị nó như text thuần túy,
+  KHÔNG thực thi như mã JavaScript.
+
+▸ 5. CHỐNG CSRF (Cross-Site Request Forgery):
+  Hệ thống sử dụng API RESTful với JSON body + header Content-Type:
+  application/json. Trình duyệt không tự động gửi loại request này từ
+  trang web khác (khác với form POST truyền thống), giảm thiểu nguy cơ
+  CSRF. Để tăng cường, có thể bổ sung CSRF token hoặc SameSite cookie.
+
+▸ 6. CHỐNG BRUTE FORCE (Dò mật khẩu):
+  Để tăng cường bảo mật, có thể triển khai thêm:
+  - Rate limiting trên endpoint đăng nhập (tối đa 5 lần/phút).
+  - Khóa tài khoản tạm thời sau N lần đăng nhập sai liên tiếp.
+  - CAPTCHA sau 3 lần đăng nhập thất bại.
+
+▸ 7. BẢO VỆ TẦNG HẠ TẦNG:
+  - HTTPS (SSL/TLS): Mã hóa toàn bộ dữ liệu truyền tải giữa client và
+    server, chống nghe lén (Man-in-the-Middle).
+  - CORS Configuration: Chỉ cho phép frontend domain truy cập API, chặn
+    các domain không xác định.
+  - Firewall + WAF: Chặn các IP/pattern tấn công phổ biến.
+  - Helmet.js: Thiết lập các HTTP security headers (X-Content-Type-Options,
+    X-Frame-Options, Content-Security-Policy...) để chống clickjacking
+    và các cuộc tấn công qua header.
+
+▸ 8. NGUYÊN TẮC PHÂN QUYỀN (đã triển khai):
+  Hệ thống phân tách rõ ràng 3 vai trò: Customer, Staff, Admin.
+  - Customer: chỉ xem/mua sản phẩm, quản lý giỏ hàng và đơn hàng cá nhân.
+  - Staff: truy cập trang quản trị, quản lý sản phẩm và đơn hàng.
+  - Admin (Owner): toàn quyền, bao gồm xem báo cáo và quản lý nhân viên.
+  Frontend kiểm tra role (isAdmin, isOwner) trước khi cho phép truy cập
+  các trang quản trị.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CÂU 6: ADMIN SỬA GIÁ SẢN PHẨM - LỊCH SỬ ĐƠN HÀNG CŨ HIỆN GIÁ NÀO?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Trả lời: Khách vào xem lại đơn hàng cũ vẫn thấy GIÁ 200.000đ (giá tại
+thời điểm mua), KHÔNG phải 300.000đ (giá mới).
+
+▸ TẠI SAO:
+  Bảng ORDER_ITEMS có cột price_at_order (giá tại thời điểm đặt hàng):
+    CREATE TABLE ORDER_ITEMS (
+        ...
+        price_at_order DECIMAL(10, 2) NOT NULL,   ← GIÁ ĐƯỢC "CHỤP LẠI"
+        ...
+    );
+
+  Khi khách đặt hàng, hệ thống lưu giá hiện tại vào price_at_order:
+    INSERT INTO ORDER_ITEMS (order_id, sku_id, quantity, price_at_order)
+    VALUES (?, ?, ?, ?)
+
+  Giá trị price_at_order này được "đóng băng" vĩnh viễn tại thời điểm mua
+  và KHÔNG liên kết ngược về bảng PRODUCTS hay PRODUCT_SKUS.
+
+▸ CƠ CHẾ HOẠT ĐỘNG:
+  - Bảng PRODUCTS chứa base_price → đây là GIÁ HIỆN TẠI, Admin sửa được.
+  - Bảng ORDER_ITEMS chứa price_at_order → đây là GIÁ LỊCH SỬ, không ai
+    sửa được (dữ liệu bất biến).
+  - Khi hiển thị lịch sử đơn hàng, frontend dùng price_at_order chứ KHÔNG
+    dùng base_price hiện tại.
+
+  ⟹ Dù Admin sửa giá bao nhiêu lần, đơn hàng cũ luôn giữ nguyên giá gốc
+     tại thời điểm mua. Đây là thiết kế chuẩn mực trong mọi hệ thống
+     thương mại điện tử (Shopee, Amazon... đều làm như vậy).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CÂU 7: TẠI SAO DÙNG is_deleted (XÓA MỀM) THAY VÌ DELETE (XÓA CỨNG)?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Trả lời: Nếu xóa cứng (DELETE) sản phẩm khỏi database, toàn bộ dữ liệu
+liên quan sẽ BỊ PHÁ VỠ. Xóa mềm (is_deleted = TRUE) giữ dữ liệu nguyên
+vẹn nhưng ẩn sản phẩm khỏi giao diện người dùng.
+
+▸ LÝ DO 1 - BẢO TOÀN LỊCH SỬ ĐƠN HÀNG:
+  Bảng ORDER_ITEMS tham chiếu đến PRODUCT_SKUS, mà PRODUCT_SKUS lại tham
+  chiếu đến PRODUCTS qua product_id. Nếu DELETE sản phẩm:
+  - Với ON DELETE CASCADE: Tất cả SKU, hình ảnh, mục tiêu, và VÀ CẢ các
+    ORDER_ITEMS liên quan sẽ bị xóa theo → đơn hàng cũ mất dữ liệu.
+  - Với ON DELETE SET NULL: product_id trong ORDER_ITEMS bị NULL → không
+    thể hiển thị tên sản phẩm, hình ảnh trong lịch sử đơn hàng.
+
+  ⟹ Với Soft Delete: Sản phẩm vẫn tồn tại trong DB → lịch sử đơn hàng
+     hiển thị đầy đủ thông tin (tên, ảnh, giá...) cho mãi về sau.
+
+▸ LÝ DO 2 - BẢO TOÀN BÁO CÁO DOANH THU:
+  Trang báo cáo Admin cần thống kê "Top sản phẩm bán chạy", doanh thu
+  theo sản phẩm... Nếu xóa cứng → dữ liệu thống kê bị sai hoặc mất.
+
+▸ LÝ DO 3 - KHẢ NĂNG KHÔI PHỤC:
+  Admin có thể vô tình xóa sản phẩm. Với soft delete:
+  - Khôi phục chỉ cần: UPDATE PRODUCTS SET is_deleted = FALSE
+  - Hệ thống có API khôi phục sẵn: PATCH /api/products/:id/restore
+  Với DELETE cứng → mất vĩnh viễn, không cách nào lấy lại.
+
+▸ LÝ DO 4 - ĐƠN GIẢN TRONG TRUY VẤN:
+  Chỉ cần thêm WHERE is_deleted = FALSE vào các câu truy vấn hiển thị
+  sản phẩm. Sản phẩm bị ẩn sẽ không xuất hiện ở trang web nhưng dữ liệu
+  vẫn an toàn trong database.
+
+▸ TỔNG KẾT:
+  Xóa cứng (DELETE)    → Nhanh, nhẹ DB, nhưng MẤT DỮ LIỆU vĩnh viễn.
+  Xóa mềm (is_deleted) → DB hơi nặng hơn, nhưng AN TOÀN, khôi phục được,
+                          bảo toàn mọi dữ liệu lịch sử liên quan.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CÂU 8: BỎ VÀO GIỎ HÀNG TỪ THỨ 2, ĐẾN THỨ 6 MỚI THANH TOÁN NHƯNG HẾT KHO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Trả lời: Hệ thống ĐÃ XỬ LÝ ĐƯỢC tình huống này. Khi khách bấm "Đặt hàng"
+vào thứ 6, nếu kho đã hết thì đơn hàng sẽ BỊ TỪ CHỐI với thông báo lỗi
+rõ ràng.
+
+▸ CƠ CHẾ: KIỂM TRA TỒN KHO TẠI THỜI ĐIỂM ĐẶT HÀNG (không phải khi thêm giỏ)
+  Giỏ hàng chỉ là "danh sách mong muốn", KHÔNG giữ chỗ (reserve) hàng.
+  Tồn kho chỉ bị trừ khi đơn hàng được tạo thành công.
+
+  Quy trình khi khách bấm "Đặt hàng" (POST /api/orders):
+  1. Mở transaction
+  2. Khóa dòng SKU bằng SELECT ... FOR UPDATE
+  3. Kiểm tra: stock >= quantity yêu cầu?
+     - Nếu stock = 0 hoặc không đủ → ROLLBACK, trả lỗi HTTP 409:
+       "Sản phẩm (SKU: X) chỉ còn 0 sản phẩm, không đủ Y sản phẩm yêu cầu"
+     - Nếu đủ → tiếp tục tạo đơn, trừ kho, COMMIT.
+  4. Frontend nhận lỗi → hiển thị thông báo cho khách hàng.
+
+▸ BỔ SUNG - KIỂM TRA TỒN KHO TRONG GIỎ HÀNG:
+  Ngoài kiểm tra tại thời điểm đặt hàng, hệ thống cũng đã kiểm tra tồn
+  kho ở nhiều tầng khác:
+  - Trang chi tiết sản phẩm: Khi bấm "Thêm vào giỏ", kiểm tra số lượng
+    muốn thêm + số lượng đã có trong giỏ <= tồn kho.
+  - API thêm giỏ hàng (POST /api/carts/:id/items): Backend kiểm tra tồn
+    kho trước khi cho phép thêm/tăng số lượng.
+  - API cập nhật giỏ hàng (PUT /api/carts/items/:id): Backend kiểm tra
+    tồn kho trước khi cho phép thay đổi số lượng.
+  - Giao diện giỏ hàng (CartDrawer): Nút "+" bị vô hiệu hóa khi đạt giới
+    hạn tồn kho.
+
+  ⟹ Hệ thống kiểm tra tồn kho ở NHIỀU TẦNG (frontend + backend + database
+     transaction), đảm bảo không bao giờ bán vượt kho trong mọi tình huống.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CÂU 9: CHỐNG SQL INJECTION QUA Ô TÌM KIẾM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Trả lời: Hệ thống KHÔNG BỊ tấn công SQL Injection qua ô tìm kiếm (và bất
+kỳ ô nhập liệu nào khác). Dưới đây là phân tích chi tiết:
+
+▸ SQL INJECTION LÀ GÌ?
+  Là kỹ thuật tấn công trong đó hacker nhập mã SQL vào ô nhập liệu (ô tìm
+  kiếm, ô đăng nhập...) nhằm thao túng câu truy vấn database. Ví dụ:
+
+  Hacker nhập vào ô tìm kiếm:  ' OR 1=1; DROP TABLE PRODUCTS; --
+
+  Nếu hệ thống NỐI CHUỖI TRỰC TIẾP (cách làm SAI):
+    sql = "SELECT * FROM PRODUCTS WHERE name LIKE '%" + userInput + "%'"
+  Câu truy vấn sẽ thành:
+    SELECT * FROM PRODUCTS WHERE name LIKE '%' OR 1=1; DROP TABLE PRODUCTS; --%' 
+  → Xóa toàn bộ bảng PRODUCTS!
+
+▸ HỆ THỐNG FITGEAR CHỐNG SQL INJECTION NHƯ THẾ NÀO:
+
+  1. Parameterized Queries (Truy vấn tham số hóa):
+     TOÀN BỘ các truy vấn SQL trong hệ thống đều dùng dấu hỏi (?) làm
+     tham số thay vì nối chuỗi:
+
+     ✅ CÁCH LÀM ĐÚNG (hệ thống FitGear):
+        pool.query('SELECT * FROM CUSTOMERS WHERE email = ?', [email])
+        pool.query('SELECT * FROM PRODUCTS WHERE gender = ?', [gender])
+        pool.query('INSERT INTO CARTS (customer_id) VALUES (?)', [customerId])
+
+     ❌ CÁCH LÀM SAI (KHÔNG BAO GIỜ dùng):
+        pool.query("SELECT * FROM CUSTOMERS WHERE email = '" + email + "'")
+
+     Khi dùng dấu ?, thư viện mysql2 sẽ tự động:
+     - Đặt giá trị trong dấu nháy an toàn
+     - Escape (vô hiệu hóa) các ký tự đặc biệt như ', ", \, ;
+     - Gửi dữ liệu và câu lệnh SQL RIÊNG BIỆT đến MySQL server
+     → MySQL hiểu rằng giá trị truyền vào là DỮ LIỆU THUẦN, không phải
+       mã SQL, nên không bao giờ thực thi nó.
+
+  2. Tìm kiếm sản phẩm - Lọc phía Client:
+     Đặc biệt với chức năng tìm kiếm, hệ thống FitGear KHÔNG gửi từ khóa
+     tìm kiếm trực tiếp vào câu truy vấn SQL. Thay vào đó:
+     - Frontend gọi API: GET /api/products (lấy tất cả sản phẩm)
+     - Lọc kết quả ở phía client bằng JavaScript:
+         products.filter(p => p.name.toLowerCase().includes(query))
+     → Từ khóa tìm kiếm KHÔNG BAO GIỜ chạm đến database, nên SQL Injection
+       qua ô tìm kiếm là hoàn toàn bất khả thi.
+
+  3. Bcrypt cho mật khẩu:
+     Ngay cả khi hacker bằng cách nào đó truy cập được database, mật khẩu
+     đã được mã hóa bằng bcrypt (one-way hash) nên không thể đọc ngược.
+
+▸ MINH HỌA CỤ THỂ:
+  Nếu hacker nhập vào ô đăng nhập:  ' OR 1=1 --
+  Hệ thống thực thi:
+    pool.query('SELECT * FROM CUSTOMERS WHERE email = ?', ["' OR 1=1 --"])
+  MySQL sẽ tìm khách hàng có email = "' OR 1=1 --" (chuỗi ký tự thường)
+  → Không tìm thấy → Trả về "Email không chính xác" → TẤN CÔNG THẤT BẠI.
+
+
+===========================================================================
+
+===========================================================================

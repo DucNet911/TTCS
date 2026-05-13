@@ -11,7 +11,7 @@ import { ChevronLeft, ChevronRight, Minus, Plus, Share2, Heart, ShieldCheck, Tru
 export const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const { cart, addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { user, isAuthenticated } = useAuth();
   
@@ -143,8 +143,19 @@ export const ProductDetail = () => {
 
 
   const handleAddToCart = () => {
-    if (selectedSku && quantity > selectedSku.stock) {
-      alert(`Rất tiếc, sản phẩm này chỉ còn ${selectedSku.stock} sản phẩm trong kho!`);
+    if (!selectedSku) return;
+    
+    // Kiểm tra số lượng đã có trong giỏ hàng
+    const existingInCart = cart.find(item => 
+      item.product.product_id === product.product_id &&
+      item.size === selectedSize &&
+      item.color === selectedColor
+    );
+    const currentCartQty = existingInCart ? existingInCart.quantity : 0;
+    const totalAfterAdd = currentCartQty + quantity;
+
+    if (totalAfterAdd > selectedSku.stock) {
+      alert(`Rất tiếc, sản phẩm này chỉ còn ${selectedSku.stock} trong kho${currentCartQty > 0 ? ` và giỏ hàng đã có ${currentCartQty} sản phẩm` : ''}!`);
       return;
     }
     addToCart({
