@@ -37,6 +37,36 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/orders/stats/top-products - Top sản phẩm bán chạy
+router.get('/stats/top-products', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const [rows] = await pool.query(`
+      SELECT 
+        p.product_id,
+        p.name AS product_name,
+        p.base_price,
+        SUM(oi.quantity) AS total_sold,
+        SUM(oi.quantity * oi.price_at_order) AS total_revenue,
+        COUNT(DISTINCT o.order_id) AS order_count,
+        (SELECT pi.image_url FROM PRODUCT_IMAGES pi WHERE pi.product_id = p.product_id AND pi.is_primary = TRUE LIMIT 1) AS image_url,
+        cat.name AS category_name
+      FROM ORDER_ITEMS oi
+      JOIN PRODUCT_SKUS ps ON oi.sku_id = ps.sku_id
+      JOIN PRODUCTS p ON ps.product_id = p.product_id
+      JOIN ORDERS o ON oi.order_id = o.order_id
+      LEFT JOIN CATEGORIES cat ON p.category_id = cat.category_id
+      WHERE o.status = 'Completed'
+      GROUP BY p.product_id
+      ORDER BY total_sold DESC
+      LIMIT ?
+    `, [limit]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/orders/:id - Chi tiết đơn hàng kèm items
 router.get('/:id', async (req, res) => {
   try {
@@ -275,12 +305,45 @@ router.put('/:id/status', async (req, res) => {
 
 // DELETE /api/orders/:id
 router.delete('/:id', async (req, res) => {
+  const conn = await pool.getConnection();
   try {
-    const [result] = await pool.query('DELETE FROM ORDERS WHERE order_id = ?', [req.params.id]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
-    res.json({ message: 'Xóa đơn hàng thành công' });
+    await conn.beginTransaction();
+
+    // Kiểm tra đơn hàng tồn tại
+    const [orders] = await conn.query('SELECT * FROM ORDERS WHERE order_id = ?', [req.params.id]);
+    if (orders.length === 0) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
+    }
+
+    const order = orders[0];
+
+    // Hoàn lại tồn kho nếu đơn hàng CHƯA bị hủy (Canceled đã hoàn kho rồi)
+    if (order.status !== 'Canceled') {
+      const [items] = await conn.query('SELECT sku_id, quantity FROM ORDER_ITEMS WHERE order_id = ?', [req.params.id]);
+      for (const item of items) {
+        await conn.query('UPDATE PRODUCT_SKUS SET stock = stock + ? WHERE sku_id = ?', [item.quantity, item.sku_id]);
+      }
+    }
+
+    // Hoàn lại lượt sử dụng voucher (nếu có)
+    if (order.voucher_id) {
+      await conn.query('UPDATE VOUCHERS SET used_count = GREATEST(used_count - 1, 0) WHERE voucher_id = ?', [order.voucher_id]);
+    }
+
+    // Xóa các bản ghi liên quan (ORDER_ITEMS sẽ tự cascade nếu có FK, nếu không thì xóa thủ công)
+    await conn.query('DELETE FROM PAYMENTS WHERE order_id = ?', [req.params.id]);
+    await conn.query('DELETE FROM SHIPPING WHERE order_id = ?', [req.params.id]);
+    await conn.query('DELETE FROM ORDER_ITEMS WHERE order_id = ?', [req.params.id]);
+    await conn.query('DELETE FROM ORDERS WHERE order_id = ?', [req.params.id]);
+
+    await conn.commit();
+    res.json({ message: 'Xóa đơn hàng thành công, đã hoàn lại tồn kho' });
   } catch (err) {
+    await conn.rollback();
     res.status(500).json({ error: err.message });
+  } finally {
+    conn.release();
   }
 });
 

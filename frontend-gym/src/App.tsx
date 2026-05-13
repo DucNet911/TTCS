@@ -20,6 +20,7 @@ import { AdminOrders } from './pages/AdminOrders';
 import { AdminProducts } from './pages/AdminProducts';
 import { AdminCustomers } from './pages/AdminCustomers';
 import { AdminReports } from './pages/AdminReports';
+import { AdminReviews } from './pages/AdminReviews';
 import { Link } from 'react-router-dom';
 
 function ScrollToTop() {
@@ -61,20 +62,21 @@ function AppContent() {
         <Route path="/admin/products" element={<AdminProducts />} />
         <Route path="/admin/customers" element={<AdminCustomers />} />
         <Route path="/admin/reports" element={<AdminReports />} />
+        <Route path="/admin/reviews" element={<AdminReviews />} />
       </Routes>
 
       {!isCheckoutPage && !isAdminPage && (
-        <footer className="bg-white text-brand-dark pt-20 pb-10 border-t border-gray-100">
+        <footer className="bg-[#111111] text-white pt-20 pb-10">
           <div className="px-4 md:px-10">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-12 mb-20">
               <div className="col-span-1 md:col-span-2">
                 <h2 className="text-3xl font-black mb-6">FITGEAR</h2>
-                <p className="text-gray-500 text-sm max-w-sm mb-8 font-medium">
+                <p className="text-gray-400 text-sm max-w-sm mb-8 font-medium">
                   Thương hiệu rèn luyện thể chất. Chúng tôi tồn tại để kết nối cộng đồng vận động viên.
                 </p>
                 <div className="flex gap-6">
                   {['Instagram', 'TikTok', 'YouTube', 'Twitter'].map(social => (
-                    <a key={social} href="#" className="text-xs font-bold uppercase tracking-widest hover:opacity-60 transition-opacity">
+                    <a key={social} href="#" className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white transition-colors">
                       {social}
                     </a>
                   ))}
@@ -82,41 +84,41 @@ function AppContent() {
               </div>
               
               <div>
-                <h4 className="text-[11px] font-black uppercase mb-6 tracking-[0.2em]">Hỗ trợ</h4>
-                <ul className="space-y-4 text-[13px] font-medium text-gray-500">
-                  <li><Link to="/info/shipping-info" className="hover:text-brand-dark transition-colors">Thông tin giao hàng</Link></li>
-                  <li><Link to="/info/returns-policy" className="hover:text-brand-dark transition-colors">Chính sách đổi trả</Link></li>
-                  <li><Link to="/info/orders" className="hover:text-brand-dark transition-colors">Đơn hàng</Link></li>
-                  <li><Link to="/info/help-center" className="hover:text-brand-dark transition-colors">Trung tâm hỗ trợ</Link></li>
+                <h4 className="text-[11px] font-black uppercase mb-6 tracking-[0.2em] text-white">Hỗ trợ</h4>
+                <ul className="space-y-4 text-[13px] font-medium text-gray-400">
+                  <li><Link to="/info/shipping-info" className="hover:text-white transition-colors">Thông tin giao hàng</Link></li>
+                  <li><Link to="/info/returns-policy" className="hover:text-white transition-colors">Chính sách đổi trả</Link></li>
+                  <li><Link to="/info/orders" className="hover:text-white transition-colors">Đơn hàng</Link></li>
+                  <li><Link to="/info/help-center" className="hover:text-white transition-colors">Trung tâm hỗ trợ</Link></li>
                 </ul>
               </div>
 
               <div>
-                <h4 className="text-[11px] font-black uppercase mb-6 tracking-[0.2em]">Trang</h4>
-                <ul className="space-y-4 text-[13px] font-medium text-gray-500">
-                  <li><Link to="/info/about-us" className="hover:text-brand-dark transition-colors">Về chúng tôi</Link></li>
-                  <li><Link to="/info/student-discount" className="hover:text-brand-dark transition-colors">Giảm giá sinh viên</Link></li>
+                <h4 className="text-[11px] font-black uppercase mb-6 tracking-[0.2em] text-white">Trang</h4>
+                <ul className="space-y-4 text-[13px] font-medium text-gray-400">
+                  <li><Link to="/info/about-us" className="hover:text-white transition-colors">Về chúng tôi</Link></li>
+                  <li><Link to="/info/student-discount" className="hover:text-white transition-colors">Giảm giá sinh viên</Link></li>
                 </ul>
               </div>
 
               <div>
-                <h4 className="text-[11px] font-black uppercase mb-6 tracking-[0.2em]">Tài khoản</h4>
-                <ul className="space-y-4 text-[13px] font-medium text-gray-500">
-                  <li><Link to="/account" className="hover:text-brand-dark transition-colors">Tài khoản của tôi</Link></li>
-                  <li><Link to="/account?mode=register" className="hover:text-brand-dark transition-colors">Đăng ký</Link></li>
+                <h4 className="text-[11px] font-black uppercase mb-6 tracking-[0.2em] text-white">Tài khoản</h4>
+                <ul className="space-y-4 text-[13px] font-medium text-gray-400">
+                  <li><Link to="/account" className="hover:text-white transition-colors">Tài khoản của tôi</Link></li>
+                  <li><Link to="/account?mode=register" className="hover:text-white transition-colors">Đăng ký</Link></li>
                   {isAdmin && (
-                    <li><Link to="/admin/orders" className="text-brand-dark font-black hover:underline transition-colors uppercase text-[11px] tracking-widest">Quản trị Đơn hàng</Link></li>
+                    <li><Link to="/admin/orders" className="text-amber-400 font-black hover:text-amber-300 transition-colors uppercase text-[11px] tracking-widest">Quản trị Đơn hàng</Link></li>
                   )}
                 </ul>
               </div>
             </div>
 
-            <div className="pt-8 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+            <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-gray-500">
               <p>© 2026 FITGEAR. BẢO LƯU MỌI QUYỀN.</p>
               <div className="flex gap-8">
-                <a href="#" className="hover:text-brand-dark">Thông báo bảo mật</a>
-                <a href="#" className="hover:text-brand-dark">Điều khoản & Điều kiện</a>
-                <a href="#" className="hover:text-brand-dark">Chính sách Cookie</a>
+                <a href="#" className="hover:text-white transition-colors">Thông báo bảo mật</a>
+                <a href="#" className="hover:text-white transition-colors">Điều khoản & Điều kiện</a>
+                <a href="#" className="hover:text-white transition-colors">Chính sách Cookie</a>
               </div>
             </div>
           </div>

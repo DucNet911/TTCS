@@ -3,6 +3,8 @@ import {
   Search, 
   Package, 
   Plus,
+  ChevronRight,
+  ChevronDown as ChevronDownIcon,
   Trash2,
   Edit,
   X,
@@ -20,7 +22,10 @@ import {
   FileText,
   Tag,
   PieChart,
-  Target
+  Target,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, Category, Brand } from '../types';
@@ -29,7 +34,7 @@ import { useAuth } from '../AuthContext';
 import { Navigate, Link } from 'react-router-dom';
 
 export const AdminProducts = () => {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isOwner, logout } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -41,12 +46,54 @@ export const AdminProducts = () => {
   const [selectedGoalIds, setSelectedGoalIds] = useState<number[]>([]);
   
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
+  const [expandedProductId, setExpandedProductId] = useState<number | null>(null);
+  const [skuMap, setSkuMap] = useState<Record<number, any[]>>({});
+  const [skuLoading, setSkuLoading] = useState(false);
+
+  const toggleExpand = async (productId: number) => {
+    if (expandedProductId === productId) {
+      setExpandedProductId(null);
+      return;
+    }
+    setExpandedProductId(productId);
+    if (!skuMap[productId]) {
+      setSkuLoading(true);
+      try {
+        const skus = await skuAPI.getAll(productId);
+        setSkuMap(prev => ({ ...prev, [productId]: skus }));
+      } catch {
+        setSkuMap(prev => ({ ...prev, [productId]: [] }));
+      } finally {
+        setSkuLoading(false);
+      }
+    }
+  };
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<Product>>({});
   const [isBrandModalOpen, setIsBrandModalOpen] = useState(false);
   const [brandFormData, setBrandFormData] = useState<Partial<Brand>>({});
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
+
+  // Sort state
+  const [sortField, setSortField] = useState<'product_id' | 'name' | 'category_name' | 'base_price' | 'status'>('product_id');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const SortIcon = ({ field }: { field: typeof sortField }) => {
+    if (sortField !== field) return <ArrowUpDown size={12} className="opacity-30" />;
+    return sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />;
+  };
 
   // Fetch data from API
   useEffect(() => {
@@ -59,11 +106,23 @@ export const AdminProducts = () => {
   }, []);
 
   const filteredProducts = useMemo(() => {
-    return products.filter(product => 
+    const filtered = products.filter(product => 
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [products, searchQuery]);
+
+    return filtered.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'product_id': cmp = a.product_id - b.product_id; break;
+        case 'name': cmp = a.name.localeCompare(b.name); break;
+        case 'category_name': cmp = (a.category_name || '').localeCompare(b.category_name || ''); break;
+        case 'base_price': cmp = Number(a.base_price) - Number(b.base_price); break;
+        case 'status': cmp = (a.status || '').localeCompare(b.status || ''); break;
+      }
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+  }, [products, searchQuery, sortField, sortDirection]);
 
   const handleCreate = () => {
     setFormData({
@@ -231,8 +290,9 @@ export const AdminProducts = () => {
             { icon: FileText, label: 'Đơn hàng', path: '/admin/orders', active: false },
             { icon: Tag, label: 'Sản phẩm', path: '/admin/products', active: true },
             { icon: Users, label: 'Khách hàng', path: '/admin/customers', active: false },
+            { icon: MessageSquare, label: 'Đánh giá', path: '/admin/reviews', active: false },
             { icon: PieChart, label: 'Báo cáo', path: '/admin/reports', active: false },
-          ].map((item) => (
+          ].filter(item => item.label !== 'Báo cáo' || isOwner).map((item) => (
             <Link
               key={item.label}
               to={item.path}
@@ -269,7 +329,7 @@ export const AdminProducts = () => {
           <div className="flex items-center gap-6">
              <div className="text-right hidden md:block">
                <p className="text-xs font-black uppercase tracking-tighter leading-none">{user?.name}</p>
-               <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Super Admin</p>
+               <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">{user?.role === 'admin' ? 'Super Admin' : 'Nhân viên'}</p>
              </div>
              <div className="w-10 h-10 bg-brand-dark rounded-full flex items-center justify-center text-white font-black text-xs uppercase shadow-lg shadow-black/20">
                {user?.name.substring(0, 2).toUpperCase()}
@@ -300,7 +360,7 @@ export const AdminProducts = () => {
                   type="text" 
                   placeholder="TÌM KIẾM SẢN PHẨM..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                   className="w-full bg-[#F5F5F5] border-none py-4 pl-12 pr-6 rounded-2xl text-[11px] font-bold uppercase tracking-widest outline-none focus:ring-2 focus:ring-black/5 transition-all"
                 />
               </div>
@@ -310,20 +370,30 @@ export const AdminProducts = () => {
               <table className="w-full text-left border-collapse min-w-[1000px]">
                 <thead>
                   <tr className="bg-gray-50/50">
-                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">ID</th>
-                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">Tên sản phẩm</th>
-                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 text-center">Phân loại</th>
-                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 text-right">Giá niêm yết</th>
-                    <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 text-center">Trạng thái kho</th>
+                    <th onClick={() => handleSort('product_id')} className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 cursor-pointer hover:text-brand-dark transition-colors select-none"><div className="flex items-center gap-1">ID <SortIcon field="product_id" /></div></th>
+                    <th onClick={() => handleSort('name')} className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 cursor-pointer hover:text-brand-dark transition-colors select-none"><div className="flex items-center gap-1">Tên sản phẩm <SortIcon field="name" /></div></th>
+                    <th onClick={() => handleSort('category_name')} className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 text-center cursor-pointer hover:text-brand-dark transition-colors select-none"><div className="flex items-center justify-center gap-1">Phân loại <SortIcon field="category_name" /></div></th>
+                    <th onClick={() => handleSort('base_price')} className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 text-right cursor-pointer hover:text-brand-dark transition-colors select-none"><div className="flex items-center justify-end gap-1">Giá niêm yết <SortIcon field="base_price" /></div></th>
+                    <th onClick={() => handleSort('status')} className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 text-center cursor-pointer hover:text-brand-dark transition-colors select-none"><div className="flex items-center justify-center gap-1">Trạng thái kho <SortIcon field="status" /></div></th>
                     <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 text-right">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filteredProducts.map((product) => {
+                  {(() => {
+                    const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+                    const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+                    const paginatedProducts = filteredProducts.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+                    return paginatedProducts.map((product) => {
+                    const isExpanded = expandedProductId === product.product_id;
+                    const productSkus = skuMap[product.product_id] || [];
                     return (
-                      <tr key={product.product_id} className="hover:bg-gray-50/80 transition-colors group border-b border-gray-50 last:border-none">
+                      <React.Fragment key={product.product_id}>
+                      <tr className={`hover:bg-gray-50/80 transition-colors group border-b border-gray-50 last:border-none ${isExpanded ? 'bg-gray-50/50' : ''}`}>
                         <td className="px-8 py-6">
-                           <div className="flex items-center gap-4">
+                           <div className="flex items-center gap-3">
+                              <button onClick={() => toggleExpand(product.product_id)} className="p-1 hover:bg-gray-200 rounded-md transition-all flex-shrink-0" title="Xem SKU">
+                                {isExpanded ? <ChevronDownIcon size={14} className="text-brand-dark" /> : <ChevronRight size={14} className="text-gray-400" />}
+                              </button>
                               <span className="text-xs font-black text-brand-dark">#{product.product_id}</span>
                               <div className="w-10 h-10 bg-brand-light rounded-lg overflow-hidden flex-shrink-0 shadow-sm">
                                 {product.primary_image && <img src={product.primary_image} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" referrerPolicy="no-referrer" />}
@@ -373,11 +443,103 @@ export const AdminProducts = () => {
                           </div>
                         </td>
                       </tr>
+                      {/* SKU Sub-rows */}
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={6} className="px-0 py-0">
+                            <div className="bg-gray-50/80 border-y border-gray-100">
+                              {skuLoading && productSkus.length === 0 ? (
+                                <div className="px-12 py-6 text-center">
+                                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest animate-pulse">Đang tải SKU...</p>
+                                </div>
+                              ) : productSkus.length > 0 ? (
+                                <table className="w-full">
+                                  <thead>
+                                    <tr className="bg-gray-100/60">
+                                      <th className="px-12 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-left">SKU Code</th>
+                                      <th className="px-4 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-left">Size</th>
+                                      <th className="px-4 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-left">Màu sắc</th>
+                                      <th className="px-4 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-right">Giá</th>
+                                      <th className="px-8 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-right">Tồn kho</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {productSkus.map((sku: any) => (
+                                      <tr key={sku.sku_id} className="border-t border-gray-100/80 hover:bg-white/60 transition-colors">
+                                        <td className="px-12 py-3">
+                                          <span className="text-[10px] font-bold text-gray-500 font-mono">{sku.sku_code || `SKU-${sku.sku_id}`}</span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                          <span className="text-[10px] font-black uppercase text-brand-dark">{sku.size_name || '—'}</span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                          <div className="flex items-center gap-2">
+                                            {sku.hex_code && <div className="w-3 h-3 rounded-full border border-gray-200" style={{ backgroundColor: sku.hex_code }}></div>}
+                                            <span className="text-[10px] font-black uppercase text-brand-dark">{sku.color_name || '—'}</span>
+                                          </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                          <span className="text-[10px] font-black text-brand-dark">
+                                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(sku.price)}
+                                          </span>
+                                        </td>
+                                        <td className="px-8 py-3 text-right">
+                                          <span className={`text-[10px] font-black ${sku.stock <= 0 ? 'text-red-500' : sku.stock <= 5 ? 'text-orange-500' : 'text-green-600'}`}>
+                                            {sku.stock}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              ) : (
+                                <div className="px-12 py-6 text-center">
+                                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Chưa có biến thể SKU nào</p>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </React.Fragment>
                     );
-                  })}
+                  });
+                  })()}
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {(() => {
+              const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+              const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+              const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, filteredProducts.length);
+              if (filteredProducts.length === 0 || totalPages <= 1) return null;
+              return (
+                <div className="px-8 py-6 flex items-center justify-between border-t border-gray-50 bg-gray-50/20">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Đang hiển thị {startIdx + 1} đến {endIdx} của {filteredProducts.length} sản phẩm</p>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+                      disabled={currentPage === 1}
+                      className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${currentPage === 1 ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-brand-dark'}`}
+                    >Trước</button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(i => (
+                      <button 
+                        key={i} 
+                        onClick={() => setCurrentPage(i)}
+                        className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${i === currentPage ? 'bg-brand-dark text-white shadow-md shadow-black/10' : 'text-gray-400 hover:bg-white hover:text-brand-dark'}`}
+                      >{i}</button>
+                    ))}
+                    <button 
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+                      disabled={currentPage === totalPages}
+                      className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${currentPage === totalPages ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-brand-dark'}`}
+                    >Sau</button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 

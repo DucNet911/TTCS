@@ -8,7 +8,10 @@ import {
   TrendingUp,
   DollarSign,
   ShoppingBag,
-  Calendar
+  Calendar,
+  Trophy,
+  Award,
+  MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { Navigate, Link } from 'react-router-dom';
@@ -16,12 +19,18 @@ import { orderAPI } from '../api';
 import { Order } from '../types';
 
 export const AdminReports = () => {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isOwner } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month');
+  const [topProducts, setTopProducts] = useState<any[]>([]);
 
   useEffect(() => {
     orderAPI.getAll().then(setOrders).catch(() => {});
+    // Fetch top products
+    fetch('http://localhost:5000/api/orders/stats/top-products?limit=10')
+      .then(res => res.json())
+      .then(setTopProducts)
+      .catch(() => {});
   }, []);
 
   const completedOrders = useMemo(() => {
@@ -73,8 +82,8 @@ export const AdminReports = () => {
     };
   }, [completedOrders, period]);
 
-  if (!isAdmin) {
-    return <Navigate to="/account" />;
+  if (!isOwner) {
+    return <Navigate to="/admin/orders" />;
   }
 
   const maxRevenue = Math.max(...chartData.map(d => d.value), 1);
@@ -92,6 +101,7 @@ export const AdminReports = () => {
             { icon: FileText, label: 'Đơn hàng', path: '/admin/orders', active: false },
             { icon: Tag, label: 'Sản phẩm', path: '/admin/products', active: false },
             { icon: Users, label: 'Khách hàng', path: '/admin/customers', active: false },
+            { icon: MessageSquare, label: 'Đánh giá', path: '/admin/reviews', active: false },
             { icon: PieChart, label: 'Báo cáo', path: '/admin/reports', active: true },
           ].map((item) => (
             <Link
@@ -247,6 +257,92 @@ export const AdminReports = () => {
                 Doanh thu (VND)
               </div>
             </div>
+          </div>
+
+          {/* Top Sản phẩm bán chạy */}
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 mt-8">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-xl bg-yellow-50 flex items-center justify-center">
+                <Trophy size={20} className="text-yellow-500" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black uppercase tracking-tight text-brand-dark">Top sản phẩm bán chạy</h3>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Thống kê từ các đơn hàng hoàn thành</p>
+              </div>
+            </div>
+
+            {topProducts.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50/50">
+                      <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 w-12">#</th>
+                      <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Sản phẩm</th>
+                      <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 text-center">Phân loại</th>
+                      <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 text-center">Đã bán</th>
+                      <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 text-center">Đơn hàng</th>
+                      <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 text-right">Doanh thu</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topProducts.map((p, idx) => {
+                      const medalColor = idx === 0 ? 'text-yellow-500' : idx === 1 ? 'text-gray-400' : idx === 2 ? 'text-amber-600' : 'text-gray-300';
+                      const maxSold = topProducts[0]?.total_sold || 1;
+                      const barWidth = (Number(p.total_sold) / Number(maxSold)) * 100;
+                      return (
+                        <tr key={p.product_id} className="border-t border-gray-50 hover:bg-gray-50/80 transition-colors group">
+                          <td className="px-4 py-4">
+                            {idx < 3 ? (
+                              <Award size={20} className={medalColor} />
+                            ) : (
+                              <span className="text-xs font-black text-gray-300 pl-1">{idx + 1}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="flex items-center gap-3">
+                              {p.image_url ? (
+                                <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 shadow-sm">
+                                  <img src={p.image_url} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                </div>
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg bg-gray-100 flex-shrink-0"></div>
+                              )}
+                              <div className="min-w-0">
+                                <p className="text-sm font-black uppercase tracking-tight text-brand-dark truncate">{p.product_name}</p>
+                                <div className="mt-1 h-1 rounded-full bg-gray-100 w-24">
+                                  <div className="h-full rounded-full bg-brand-dark transition-all duration-500" style={{ width: `${barWidth}%` }}></div>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <span className="bg-brand-dark text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">
+                              {p.category_name || ''}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <span className="text-sm font-black text-brand-dark">{Number(p.total_sold)}</span>
+                            <span className="text-[10px] text-gray-400 ml-1">sp</span>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <span className="text-sm font-bold text-gray-500">{Number(p.order_count)}</span>
+                          </td>
+                          <td className="px-4 py-4 text-right">
+                            <span className="text-sm font-black text-brand-dark">
+                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(p.total_revenue))}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Chưa có dữ liệu bán hàng</p>
+              </div>
+            )}
           </div>
         </div>
       </main>

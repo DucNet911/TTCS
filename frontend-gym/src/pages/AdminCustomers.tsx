@@ -5,6 +5,7 @@ import {
   Plus,
   Trash2,
   Edit,
+  Eye,
   X,
   LayoutDashboard,
   Package,
@@ -29,7 +30,7 @@ import { useAuth } from '../AuthContext';
 import { Navigate, Link } from 'react-router-dom';
 
 export const AdminCustomers = () => {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isOwner, logout } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -112,8 +113,9 @@ export const AdminCustomers = () => {
             { icon: FileText, label: 'Đơn hàng', path: '/admin/orders', active: false },
             { icon: Tag, label: 'Sản phẩm', path: '/admin/products', active: false },
             { icon: Users, label: 'Khách hàng', path: '/admin/customers', active: true },
+            { icon: MessageSquare, label: 'Đánh giá', path: '/admin/reviews', active: false },
             { icon: PieChart, label: 'Báo cáo', path: '/admin/reports', active: false },
-          ].map((item) => (
+          ].filter(item => item.label !== 'Báo cáo' || isOwner).map((item) => (
             <Link
               key={item.label}
               to={item.path}
@@ -150,7 +152,7 @@ export const AdminCustomers = () => {
           <div className="flex items-center gap-6">
              <div className="text-right hidden md:block">
                <p className="text-xs font-black uppercase tracking-tighter leading-none">{user?.name}</p>
-               <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Super Admin</p>
+               <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">{user?.role === 'admin' ? 'Super Admin' : 'Nhân viên'}</p>
              </div>
              <div className="w-10 h-10 bg-brand-dark rounded-full flex items-center justify-center text-white font-black text-xs uppercase shadow-lg shadow-black/20">
                {user?.name.substring(0, 2).toUpperCase()}
@@ -164,12 +166,6 @@ export const AdminCustomers = () => {
               <h1 className="text-[46px] font-black uppercase tracking-tighter text-brand-dark leading-none">Khách hàng</h1>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-4">Tổng số {customers.length} khách hàng đã đăng ký</p>
             </div>
-            <button 
-              onClick={handleCreate}
-              className="bg-brand-dark hover:scale-[1.02] active:scale-[0.98] text-white px-8 py-4 rounded-full flex items-center gap-3 text-[11px] font-black uppercase tracking-widest transition-all shadow-xl shadow-black/10"
-            >
-              <Plus size={18} /> Thêm khách hàng mới
-            </button>
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
@@ -220,8 +216,7 @@ export const AdminCustomers = () => {
                       </td>
                       <td className="px-8 py-6 text-right">
                         <div className="flex items-center justify-end gap-2 text-gray-400">
-                          <button onClick={() => handleEdit(customer)} className="p-2 hover:bg-black hover:text-white rounded-xl transition-all" title="Chỉnh sửa"><Edit size={16} /></button>
-                          <button onClick={() => handleDelete(customer.customer_id)} className="p-2 hover:bg-red-600 hover:text-white rounded-xl transition-all" title="Xóa"><Trash2 size={16} /></button>
+                          <button onClick={() => handleEdit(customer)} className="p-2 hover:bg-black hover:text-white rounded-xl transition-all" title="Xem chi tiết"><Eye size={16} /></button>
                         </div>
                       </td>
                     </tr>
@@ -232,7 +227,7 @@ export const AdminCustomers = () => {
           </div>
         </div>
 
-        {/* Modal */}
+        {/* Modal Xem chi tiết */}
         <AnimatePresence>
           {isFormOpen && (
             <motion.div 
@@ -246,48 +241,40 @@ export const AdminCustomers = () => {
                 onClick={e => e.stopPropagation()}
               >
                 <div className="flex justify-between items-center mb-8">
-                  <h2 className="text-[22px] font-black uppercase tracking-tighter">{selectedCustomerId ? 'Chỉnh sửa khách hàng' : 'Thêm khách hàng mới'}</h2>
+                  <h2 className="text-[22px] font-black uppercase tracking-tighter">Thông tin khách hàng</h2>
                   <button onClick={() => setIsFormOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={24} /></button>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-5">
+                  <div className="grid grid-cols-2 gap-5">
                     <div className="col-span-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2">Họ và tên</label>
-                      <input 
-                        required type="text" value={formData.name || ''} 
-                        onChange={e => setFormData({...formData, name: e.target.value})}
-                        className="w-full bg-gray-50 border-none px-4 py-3 rounded-xl font-bold focus:ring-2 focus:ring-brand-dark/5"
-                      />
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Họ và tên</p>
+                      <p className="bg-gray-50 px-4 py-3 rounded-xl font-bold text-brand-dark">{formData.name || '—'}</p>
                     </div>
                     <div>
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2">Email</label>
-                      <input 
-                        required type="email" value={formData.email || ''} 
-                        onChange={e => setFormData({...formData, email: e.target.value})}
-                        className="w-full bg-gray-50 border-none px-4 py-3 rounded-xl font-bold focus:ring-2 focus:ring-brand-dark/5"
-                      />
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Email</p>
+                      <p className="bg-gray-50 px-4 py-3 rounded-xl font-bold text-gray-600 lowercase">{formData.email || '—'}</p>
                     </div>
                     <div>
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2">Số điện thoại</label>
-                      <input 
-                        required type="tel" value={formData.phone || ''} 
-                        onChange={e => setFormData({...formData, phone: e.target.value})}
-                        className="w-full bg-gray-50 border-none px-4 py-3 rounded-xl font-bold focus:ring-2 focus:ring-brand-dark/5"
-                      />
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Số điện thoại</p>
+                      <p className="bg-gray-50 px-4 py-3 rounded-xl font-bold text-brand-dark">{formData.phone || '—'}</p>
                     </div>
                     <div className="col-span-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2">Địa chỉ</label>
-                      <input 
-                        required type="text" value={formData.address || ''} 
-                        onChange={e => setFormData({...formData, address: e.target.value})}
-                        className="w-full bg-gray-50 border-none px-4 py-3 rounded-xl font-bold focus:ring-2 focus:ring-brand-dark/5"
-                      />
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Địa chỉ</p>
+                      <p className="bg-gray-50 px-4 py-3 rounded-xl font-bold text-brand-dark">{formData.address || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Giới tính</p>
+                      <p className="bg-gray-50 px-4 py-3 rounded-xl font-bold text-brand-dark">{formData.gender === 'male' ? 'Nam' : formData.gender === 'female' ? 'Nữ' : 'Khác'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Ngày sinh</p>
+                      <p className="bg-gray-50 px-4 py-3 rounded-xl font-bold text-brand-dark">{formData.birth_date ? new Date(formData.birth_date).toLocaleDateString('vi-VN') : '—'}</p>
                     </div>
                   </div>
-                  <button type="submit" className="w-full bg-brand-dark text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] transition-transform">
-                    {selectedCustomerId ? 'Cập nhật thông tin' : 'Thêm khách hàng'}
+                  <button onClick={() => setIsFormOpen(false)} className="w-full bg-gray-100 text-brand-dark py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition-colors">
+                    Đóng
                   </button>
-                </form>
+                </div>
               </motion.div>
             </motion.div>
           )}

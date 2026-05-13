@@ -23,6 +23,9 @@ import {
   Bell,
   ChevronDown,
   ArrowUpRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   FileText,
   Tag,
   PieChart,
@@ -64,7 +67,7 @@ const NEXT_STATUS_LABEL: Record<string, string> = {
 };
 
 export const AdminOrders = () => {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isOwner, logout } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   
@@ -72,6 +75,50 @@ export const AdminOrders = () => {
   const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [isAddOrderOpen, setIsAddOrderOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
+
+  // Expand order items
+  const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
+  const [orderItemsMap, setOrderItemsMap] = useState<Record<number, any[]>>({});
+  const [itemsLoading, setItemsLoading] = useState(false);
+
+  const toggleOrderExpand = async (orderId: number) => {
+    if (expandedOrderId === orderId) {
+      setExpandedOrderId(null);
+      return;
+    }
+    setExpandedOrderId(orderId);
+    if (!orderItemsMap[orderId]) {
+      setItemsLoading(true);
+      try {
+        const detail = await orderAPI.getById(orderId);
+        setOrderItemsMap(prev => ({ ...prev, [orderId]: detail.items || [] }));
+      } catch {
+        setOrderItemsMap(prev => ({ ...prev, [orderId]: [] }));
+      } finally {
+        setItemsLoading(false);
+      }
+    }
+  };
+
+  // Sort state
+  const [sortField, setSortField] = useState<'order_id' | 'order_date' | 'customer_name' | 'total_amount' | 'status'>('order_id');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const SortIcon = ({ field }: { field: typeof sortField }) => {
+    if (sortField !== field) return <ArrowUpDown size={12} className="opacity-30" />;
+    return sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />;
+  };
 
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [allSkus, setAllSkus] = useState<any[]>([]);
@@ -96,7 +143,7 @@ export const AdminOrders = () => {
   }, []);
 
   const filteredOrders = useMemo(() => {
-    return orders.filter(order => {
+    const filtered = orders.filter(order => {
       const matchesSearch = 
         order.order_id.toString().includes(searchQuery) ||
         (order.customer_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -109,7 +156,20 @@ export const AdminOrders = () => {
       
       return matchesSearch && matchesStatus;
     });
-  }, [orders, searchQuery, statusFilter]);
+
+    // Sắp xếp
+    return filtered.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'order_id': cmp = a.order_id - b.order_id; break;
+        case 'order_date': cmp = new Date(a.order_date).getTime() - new Date(b.order_date).getTime(); break;
+        case 'customer_name': cmp = (a.customer_name || '').localeCompare(b.customer_name || ''); break;
+        case 'total_amount': cmp = a.total_amount - b.total_amount; break;
+        case 'status': cmp = a.status.localeCompare(b.status); break;
+      }
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+  }, [orders, searchQuery, statusFilter, sortField, sortDirection]);
 
   const handleStatusChange = async (orderId: number, newStatus: Order['status']) => {
     try {
@@ -145,6 +205,106 @@ export const AdminOrders = () => {
 
   const activeOrder = orders.find(o => o.order_id === selectedOrderId);
 
+  const handlePrintInvoice = () => {
+    if (!activeOrder) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    const orderItems = orderItemsMap[activeOrder.order_id] || [];
+    
+    const html = `
+      <html>
+        <head>
+          <title>Hóa đơn #${activeOrder.order_id}</title>
+          <style>
+            body { font-family: 'Inter', -apple-system, sans-serif; padding: 40px; color: #111; max-width: 800px; margin: 0 auto; }
+            .header { text-align: center; border-bottom: 2px solid #111; padding-bottom: 20px; margin-bottom: 30px; }
+            .header h1 { margin: 0; font-size: 32px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px; }
+            .header p { margin: 5px 0 0; color: #666; font-size: 12px; font-weight: bold; letter-spacing: 1px; }
+            .info { display: flex; justify-content: space-between; margin-bottom: 40px; }
+            .info div { width: 48%; }
+            .info h3 { font-size: 10px; text-transform: uppercase; color: #888; letter-spacing: 2px; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+            .info p { margin: 5px 0; font-size: 14px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+            th, td { padding: 16px 12px; text-align: left; border-bottom: 1px solid #eee; }
+            th { font-size: 10px; text-transform: uppercase; color: #888; letter-spacing: 1px; }
+            .text-right { text-align: right; }
+            .text-center { text-align: center; }
+            .total { text-align: right; margin-top: 30px; border-top: 2px solid #111; padding-top: 20px; }
+            .total p { margin: 5px 0; font-size: 14px; }
+            .total .grand-total { font-size: 24px; font-weight: 900; margin-top: 10px; }
+            .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 20px; }
+            @media print {
+              body { padding: 0; }
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>FITGEAR</h1>
+            <p>HÓA ĐƠN MUA HÀNG</p>
+            <p style="margin-top: 10px; color: #111;">MÃ ĐƠN: #${activeOrder.order_id} - NGÀY: ${new Date(activeOrder.order_date).toLocaleString('vi-VN')}</p>
+          </div>
+          
+          <div class="info">
+            <div>
+              <h3>Khách hàng</h3>
+              <p><strong>${activeOrder.customer_name}</strong></p>
+              <p>${activeOrder.customer_email}</p>
+              <p>${activeOrder.customer_phone || ''}</p>
+            </div>
+            <div>
+              <h3>Giao hàng đến</h3>
+              <p>${activeOrder.shipping_address || 'Nhận tại cửa hàng'}</p>
+            </div>
+          </div>
+  
+          <table>
+            <thead>
+              <tr>
+                <th>Sản phẩm</th>
+                <th class="text-center">SL</th>
+                <th class="text-right">Đơn giá</th>
+                <th class="text-right">Thành tiền</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${orderItems.map((item: any) => `
+                <tr>
+                  <td>
+                    <strong>${item.product_name}</strong><br/>
+                    <span style="font-size:12px;color:#666;font-family:monospace;">SKU: ${item.sku_code || 'N/A'}</span>
+                    <span style="font-size:12px;color:#666;"> | Size: ${item.size_name || '-'} | Color: ${item.color_name || '-'}</span>
+                  </td>
+                  <td class="text-center"><strong>${item.quantity}</strong></td>
+                  <td class="text-right">${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.price_at_order)}</td>
+                  <td class="text-right"><strong>${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.quantity * item.price_at_order)}</strong></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+  
+          <div class="total">
+            ${activeOrder.discount_amount ? `<p>Giảm giá: <strong>-${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(activeOrder.discount_amount)}</strong></p>` : ''}
+            <p class="grand-total">TỔNG CỘNG: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(activeOrder.total_amount)}</p>
+          </div>
+  
+          <div class="footer">
+            <p><strong>Cảm ơn quý khách đã mua sắm tại FITGEAR!</strong></p>
+            <p>Mọi thắc mắc xin liên hệ: support@fitgear.com | Hotline: 1900 1234</p>
+          </div>
+          <script>
+            window.onload = function() { window.print(); }
+          </script>
+        </body>
+      </html>
+    `;
+    
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   return (
     <div className="min-h-screen bg-white flex font-sans">
       {/* Sidebar - Brand Dark Style */}
@@ -158,7 +318,8 @@ export const AdminOrders = () => {
             { icon: FileText, label: 'Đơn hàng', path: '/admin/orders', active: true },
             { icon: Tag, label: 'Sản phẩm', path: '/admin/products', active: false },
             { icon: Users, label: 'Khách hàng', path: '/admin/customers', active: false },
-            { icon: PieChart, label: 'Báo cáo', path: '/admin/reports', active: false },
+            { icon: MessageSquare, label: 'Đánh giá', path: '/admin/reviews', active: false },
+            ...(isOwner ? [{ icon: PieChart, label: 'Báo cáo', path: '/admin/reports', active: false }] : []),
           ].map((item) => (
             <Link
               key={item.label}
@@ -196,7 +357,7 @@ export const AdminOrders = () => {
           <div className="flex items-center gap-6">
              <div className="text-right hidden md:block">
                <p className="text-xs font-black uppercase tracking-tighter leading-none">{user?.name}</p>
-               <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Super Admin</p>
+               <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">{user?.role === 'admin' ? 'Super Admin' : 'Nhân viên'}</p>
              </div>
              <div className="w-10 h-10 bg-brand-dark rounded-full flex items-center justify-center text-white font-black text-xs uppercase shadow-lg shadow-black/20">
                {user?.name.substring(0, 2).toUpperCase()}
@@ -234,7 +395,7 @@ export const AdminOrders = () => {
                   ].map((tab) => (
                     <button
                       key={tab.id}
-                      onClick={() => setStatusFilter(tab.id as any)}
+                      onClick={() => { setStatusFilter(tab.id as any); setCurrentPage(1); }}
                       className={`px-4 py-4 text-sm font-black uppercase tracking-widest transition-all relative min-w-fit ${
                         statusFilter === tab.id 
                           ? 'text-brand-dark border-b-2 border-brand-dark' 
@@ -254,7 +415,7 @@ export const AdminOrders = () => {
                       type="text" 
                       placeholder="Tìm mã đơn hàng..."
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                       className="w-full bg-white border border-gray-200 py-2 pl-10 pr-4 rounded-md text-sm outline-none focus:border-brand-dark transition-all shadow-sm"
                     />
                   </div>
@@ -267,25 +428,37 @@ export const AdminOrders = () => {
                   <table className="w-full text-left border-collapse min-w-[1000px]">
                     <thead className="bg-[#F8F9FA]">
                       <tr>
-                        <th className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100">Mã ĐH</th>
-                        <th className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100">Ngày tạo</th>
-                        <th className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100">Khách hàng</th>
-                        <th className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100 text-right">Tổng tiền</th>
-                        <th className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100 text-center">Trạng thái</th>
+                        <th onClick={() => handleSort('order_id')} className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100 cursor-pointer hover:text-brand-dark transition-colors select-none"><div className="flex items-center gap-1">Mã ĐH <SortIcon field="order_id" /></div></th>
+                        <th onClick={() => handleSort('order_date')} className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100 cursor-pointer hover:text-brand-dark transition-colors select-none"><div className="flex items-center gap-1">Ngày tạo <SortIcon field="order_date" /></div></th>
+                        <th onClick={() => handleSort('customer_name')} className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100 cursor-pointer hover:text-brand-dark transition-colors select-none"><div className="flex items-center gap-1">Khách hàng <SortIcon field="customer_name" /></div></th>
+                        <th onClick={() => handleSort('total_amount')} className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100 text-right cursor-pointer hover:text-brand-dark transition-colors select-none"><div className="flex items-center justify-end gap-1">Tổng tiền <SortIcon field="total_amount" /></div></th>
+                        <th onClick={() => handleSort('status')} className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100 text-center cursor-pointer hover:text-brand-dark transition-colors select-none"><div className="flex items-center justify-center gap-1">Trạng thái <SortIcon field="status" /></div></th>
                         <th className="px-6 py-4 text-[11px] font-black uppercase text-gray-400 border-b border-gray-100 text-right">Thao tác</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {filteredOrders.length > 0 ? filteredOrders.map((order) => {
+                      {(() => {
+                        const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
+                        const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+                        const paginatedOrders = filteredOrders.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+                        return paginatedOrders.length > 0 ? paginatedOrders.map((order) => {
+                        const isExpanded = expandedOrderId === order.order_id;
+                        const orderItems = orderItemsMap[order.order_id] || [];
                         return (
-                          <tr key={order.order_id} className="hover:bg-gray-50/80 transition-[] group">
+                          <React.Fragment key={order.order_id}>
+                          <tr className={`hover:bg-gray-50/80 transition-all group ${isExpanded ? 'bg-gray-50/50' : ''}`}>
                             <td className="px-6 py-4 border-b border-gray-50">
-                              <button 
-                                onClick={() => setSelectedOrderId(order.order_id)}
-                                className="text-sm font-black text-brand-dark hover:underline uppercase tracking-tight"
-                              >
-                                #{order.order_id}
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => toggleOrderExpand(order.order_id)} className="p-1 hover:bg-gray-200 rounded-md transition-all flex-shrink-0" title="Xem sản phẩm">
+                                  {isExpanded ? <ChevronDown size={14} className="text-brand-dark" /> : <ChevronRight size={14} className="text-gray-400" />}
+                                </button>
+                                <button 
+                                  onClick={() => setSelectedOrderId(order.order_id)}
+                                  className="text-sm font-black text-brand-dark hover:underline uppercase tracking-tight"
+                                >
+                                  #{order.order_id}
+                                </button>
+                              </div>
                             </td>
                             <td className="px-6 py-4 border-b border-gray-50">
                               <p className="text-sm font-bold text-gray-400 capitalize">{new Date(order.order_date).toLocaleString('vi-VN')}</p>
@@ -319,6 +492,74 @@ export const AdminOrders = () => {
                               </div>
                             </td>
                           </tr>
+                          {/* Order Items Sub-rows */}
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={6} className="px-0 py-0">
+                                <div className="bg-gray-50/80 border-y border-gray-100">
+                                  {itemsLoading && orderItems.length === 0 ? (
+                                    <div className="px-12 py-6 text-center">
+                                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest animate-pulse">Đang tải sản phẩm...</p>
+                                    </div>
+                                  ) : orderItems.length > 0 ? (
+                                    <table className="w-full">
+                                      <thead>
+                                        <tr className="bg-gray-100/60">
+                                          <th className="px-10 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-left">Sản phẩm</th>
+                                          <th className="px-4 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-left">Phiên bản</th>
+                                          <th className="px-4 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-center">Số lượng</th>
+                                          <th className="px-4 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-right">Đơn giá</th>
+                                          <th className="px-8 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-right">Thành tiền</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {orderItems.map((item: any, idx: number) => (
+                                          <tr key={idx} className="border-t border-gray-100/80 hover:bg-white/60 transition-colors">
+                                            <td className="px-10 py-3">
+                                              <div className="flex items-center gap-3">
+                                                {item.image_url && (
+                                                  <div className="w-8 h-8 rounded-md overflow-hidden flex-shrink-0 bg-gray-100">
+                                                    <img src={item.image_url} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                                  </div>
+                                                )}
+                                                <span className="text-[10px] font-black text-brand-dark uppercase">{item.product_name}</span>
+                                              </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                              <div className="flex items-center gap-2">
+                                                {item.color_name && item.hex_code && <div className="w-3 h-3 rounded-full border border-gray-200" style={{ backgroundColor: item.hex_code }}></div>}
+                                                <span className="text-[10px] font-bold text-gray-500">
+                                                  {[item.size_name, item.color_name].filter(Boolean).join(' / ') || '—'}
+                                                </span>
+                                              </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                              <span className="text-[10px] font-black text-brand-dark">x{item.quantity}</span>
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                              <span className="text-[10px] font-bold text-gray-500">
+                                                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.price_at_order)}
+                                              </span>
+                                            </td>
+                                            <td className="px-8 py-3 text-right">
+                                              <span className="text-[10px] font-black text-brand-dark">
+                                                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.price_at_order * item.quantity)}
+                                              </span>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  ) : (
+                                    <div className="px-12 py-6 text-center">
+                                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Không có sản phẩm trong đơn hàng này</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          </React.Fragment>
                         );
                       }) : (
                         <tr>
@@ -326,22 +567,43 @@ export const AdminOrders = () => {
                             Không tìm thấy đơn hàng nào
                           </td>
                         </tr>
-                      )}
+                      );
+                      })()}
                     </tbody>
                   </table>
                 </div>
 
-                {/* Pagination Mockup */}
-                <div className="px-8 py-6 flex items-center justify-between border-t border-gray-50 bg-gray-50/20">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Đang hiển thị 1 đến {filteredOrders.length} của {orders.length} đơn hàng</p>
-                  <div className="flex items-center gap-2">
-                    <button className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-brand-dark transition-[]">Trước</button>
-                    {[1, 2, 3].map(i => (
-                      <button key={i} className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${i === 1 ? 'bg-brand-dark text-white shadow-md shadow-black/10' : 'text-gray-400 hover:bg-white hover:text-brand-dark'}`}>{i}</button>
-                    ))}
-                    <button className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-brand-dark transition-[]">Sau</button>
-                  </div>
-                </div>
+                {/* Pagination */}
+                {(() => {
+                  const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
+                  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+                  const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, filteredOrders.length);
+                  if (filteredOrders.length === 0) return null;
+                  return (
+                    <div className="px-8 py-6 flex items-center justify-between border-t border-gray-50 bg-gray-50/20">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Đang hiển thị {startIdx + 1} đến {endIdx} của {filteredOrders.length} đơn hàng</p>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+                          disabled={currentPage === 1}
+                          className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${currentPage === 1 ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-brand-dark'}`}
+                        >Trước</button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(i => (
+                          <button 
+                            key={i} 
+                            onClick={() => setCurrentPage(i)}
+                            className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${i === currentPage ? 'bg-brand-dark text-white shadow-md shadow-black/10' : 'text-gray-400 hover:bg-white hover:text-brand-dark'}`}
+                          >{i}</button>
+                        ))}
+                        <button 
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+                          disabled={currentPage === totalPages}
+                          className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${currentPage === totalPages ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-brand-dark'}`}
+                        >Sau</button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </>
           ) : (
@@ -842,7 +1104,10 @@ export const AdminOrders = () => {
                           <p className="text-[10px] font-black uppercase text-gray-300 tracking-widest mb-1">Tổng cộng tiền</p>
                           <p className="text-3xl font-black text-brand-dark">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(activeOrder.total_amount)}</p>
                        </div>
-                       <button className="bg-brand-dark text-white px-10 py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl shadow-black/20 hover:scale-[1.02] transition-transform">
+                       <button 
+                         onClick={handlePrintInvoice}
+                         className="bg-brand-dark text-white px-10 py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl shadow-black/20 hover:scale-[1.02] transition-transform"
+                       >
                           In hóa đơn
                        </button>
                      </div>

@@ -7,10 +7,11 @@ interface AuthContextType {
   user: Customer | null;
   login: (email: string, password: string) => Promise<void>;
   register: (userData: Partial<Customer & { password: string }>) => Promise<void>;
-  updateProfile: (data: { name?: string; phone?: string; address?: string }) => Promise<void>;
+  updateProfile: (data: { name?: string; phone?: string; address?: string; birth_date?: string }) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
-  isAdmin: boolean;
+  isAdmin: boolean;   // admin hoặc staff → có quyền vào trang quản trị
+  isOwner: boolean;   // chỉ admin → xem báo cáo, quản lý nhân viên
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -54,8 +55,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Đăng nhập staff/admin thành công
+      // Dùng customer_id = -staff_id (số âm) để TRÁNH trùng với customer_id thật
       const staffUser: Customer = {
-        customer_id: staffData.user.staff_id,
+        customer_id: -(staffData.user.staff_id),
         name: staffData.user.full_name,
         email: staffData.user.username,
         password_hash: '',
@@ -130,6 +132,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateProfile = async (data: { name?: string; phone?: string; address?: string; birth_date?: string }) => {
     if (!user) throw new Error('Chưa đăng nhập');
 
+    // Staff/Admin → gọi API staff, không gọi API customers
+    if (user.role === 'admin' || user.role === 'staff') {
+      const staffId = Math.abs(user.customer_id); // customer_id lưu âm, lấy lại staff_id gốc
+      const res = await fetch(`${API_BASE}/staff/${staffId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_name: data.name }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Cập nhật thất bại');
+      setUser(prev => prev ? { ...prev, name: data.name || prev.name } : prev);
+      return;
+    }
+
+    // Customer → gọi API customers như bình thường
     const res = await fetch(`${API_BASE}/customers/${user.customer_id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -158,7 +175,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updateProfile,
       logout, 
       isAuthenticated: !!user,
-      isAdmin: user?.role === 'admin'
+      isAdmin: user?.role === 'admin' || user?.role === 'staff',
+      isOwner: user?.role === 'admin',
     }}>
       {children}
     </AuthContext.Provider>

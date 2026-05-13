@@ -24,6 +24,7 @@ export const Account = () => {
   const [loading, setLoading] = useState(false);
   const [userOrders, setUserOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState<'profile' | 'orders' | 'settings'>('profile');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   // State cho chỉnh sửa thông tin cá nhân
   const [editName, setEditName] = useState('');
@@ -346,7 +347,10 @@ export const Account = () => {
                           </div>
                           <div className="p-4 space-y-4">
                             {getOrderItems(order.order_id).map((item) => {
-                              const productImage = item.primary_image || item.image || '';
+                              const productImage = item.image_url || item.primary_image || item.image || '';
+                              const productName = item.product_name || item.product?.name || '';
+                              const sizeName = item.size_name || item.size?.name || '';
+                              const colorName = item.color_name || item.color?.name || '';
                               
                               return (
                                 <div key={item.order_item_id} className="flex gap-4">
@@ -354,7 +358,7 @@ export const Account = () => {
                                     {productImage ? (
                                       <img 
                                         src={productImage} 
-                                        alt={item.product?.name} 
+                                        alt={productName} 
                                         className="w-full h-full object-cover"
                                         referrerPolicy="no-referrer"
                                       />
@@ -365,9 +369,9 @@ export const Account = () => {
                                     )}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <h4 className="text-sm font-black uppercase truncate">{item.product?.name}</h4>
+                                    <h4 className="text-sm font-black uppercase truncate">{productName}</h4>
                                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                                      Size: {item.size?.name} | Màu: {item.color?.name}
+                                      Size: {sizeName} | Màu: {colorName}
                                     </p>
                                     <div className="flex justify-between items-center mt-2">
                                       <p className="text-xs font-bold">x{item.quantity}</p>
@@ -379,7 +383,12 @@ export const Account = () => {
                             })}
                           </div>
                           <div className="p-4 border-t border-gray-50 flex justify-end">
-                            <button className="text-[10px] font-black uppercase tracking-widest hover:underline">Xem chi tiết đơn hàng</button>
+                            <button 
+                              onClick={() => setSelectedOrder(order)}
+                              className="text-[10px] font-black uppercase tracking-widest hover:underline"
+                            >
+                              Xem chi tiết đơn hàng
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -590,6 +599,115 @@ export const Account = () => {
             </AnimatePresence>
           </div>
         </div>
+
+        {/* Modal Chi tiết đơn hàng */}
+        {selectedOrder && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+            <div className="bg-white p-8 rounded-sm shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative">
+              <button 
+                onClick={() => setSelectedOrder(null)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-black"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+              <h2 className="text-lg font-black uppercase mb-6">Chi tiết đơn hàng #ORD-{selectedOrder.order_id}</h2>
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ngày đặt</p>
+                    <p className="font-bold">{new Date(selectedOrder.order_date).toLocaleDateString('vi-VN')}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Trạng thái</p>
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(selectedOrder.status)}
+                      <span className="font-bold text-xs">{getStatusText(selectedOrder.status)}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Phương thức thanh toán</p>
+                    <p className="font-bold">{selectedOrder.payment_method || 'Thanh toán khi nhận hàng (COD)'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Địa chỉ giao hàng</p>
+                    <p className="font-bold">{selectedOrder.shipping_address || user.address}</p>
+                  </div>
+                </div>
+                
+                <div className="border-t border-gray-100 pt-6">
+                  <h3 className="text-sm font-black uppercase mb-4">Sản phẩm</h3>
+                  <div className="space-y-4">
+                    {getOrderItems(selectedOrder.order_id).map((item) => {
+                      const productImage = item.image_url || item.primary_image || item.image || '';
+                      const productName = item.product_name || item.product?.name || '';
+                      const sizeName = item.size_name || item.size?.name || '';
+                      const colorName = item.color_name || item.color?.name || '';
+                      
+                      return (
+                        <div key={item.order_item_id} className="flex gap-4 items-center">
+                          <div className="w-12 h-16 bg-brand-light rounded-sm overflow-hidden flex-shrink-0">
+                            {productImage ? (
+                              <img 
+                                src={productImage} 
+                                alt={productName} 
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <span className="text-[6px] font-black uppercase tracking-widest text-gray-300">No Image</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="text-xs font-black uppercase">{productName}</h4>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                              Size: {sizeName} | Màu: {colorName}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs font-bold">x{item.quantity}</p>
+                            <p className="text-xs font-black">{formatPrice(item.price_at_order)}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="border-t border-gray-100 pt-6 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 font-bold">Tạm tính</span>
+                    <span className="font-bold">{formatPrice(Number(selectedOrder.total_amount) - Number(selectedOrder.shipping?.shipping_fee || 0) + Number(selectedOrder.discount_amount || 0))}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 font-bold">Phí vận chuyển</span>
+                    <span className="font-bold">{formatPrice(selectedOrder.shipping?.shipping_fee || 0)}</span>
+                  </div>
+                  {selectedOrder.discount_amount && selectedOrder.discount_amount > 0 ? (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span className="font-bold">Giảm giá</span>
+                      <span className="font-bold">-{formatPrice(selectedOrder.discount_amount)}</span>
+                    </div>
+                  ) : null}
+                  <div className="flex justify-between text-base border-t border-gray-100 pt-2">
+                    <span className="font-black uppercase tracking-widest">Tổng cộng</span>
+                    <span className="font-black text-brand-dark">{formatPrice(selectedOrder.total_amount)}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-8 flex justify-end">
+                <button 
+                  onClick={() => setSelectedOrder(null)}
+                  className="bg-brand-dark text-white px-6 py-3 uppercase text-[10px] font-black tracking-widest hover:bg-gray-800 transition-all"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

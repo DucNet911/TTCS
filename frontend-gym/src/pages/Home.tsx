@@ -3,7 +3,7 @@ import { ProductCard } from '../components/ProductCard';
 import { Product } from '../types';
 import { productAPI, customerAPI } from '../api';
 import { motion, AnimatePresence } from 'motion/react';
-import { Zap, Shield, Trophy, ChevronRight, ChevronLeft, Target } from 'lucide-react';
+import { Zap, Shield, Trophy, ChevronRight, ChevronLeft, Target, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 
@@ -65,6 +65,8 @@ export const Home = () => {
   const [womenProducts, setWomenProducts] = useState<Product[]>([]);
   const [accessoryProducts, setAccessoryProducts] = useState<Product[]>([]);
   const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
+  const [bestsellerProducts, setBestsellerProducts] = useState<Product[]>([]);
+  const [hasPersonalGoals, setHasPersonalGoals] = useState(false);
 
   useEffect(() => {
     // Fetch 5 sản phẩm mới nhất dành cho Nam (tất cả danh mục quần áo nam)
@@ -85,16 +87,44 @@ export const Home = () => {
       const all = results.flat().sort((a, b) => b.product_id - a.product_id);
       setAccessoryProducts(all.slice(0, 5));
     }).catch(() => {});
+
+    // Luôn fetch top 5 sản phẩm bán chạy nhất
+    fetch('http://localhost:5000/api/orders/stats/top-products?limit=5')
+      .then(res => res.json())
+      .then(async (topData) => {
+        if (topData && topData.length > 0) {
+          // Fetch full product details cho mỗi top product
+          const allProducts = await productAPI.getAll();
+          const topIds = topData.map((t: any) => t.product_id);
+          const matched = topIds
+            .map((id: number) => allProducts.find((p: Product) => p.product_id === id))
+            .filter(Boolean) as Product[];
+          setBestsellerProducts(matched);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Fetch sản phẩm gợi ý theo mục tiêu thể hình của khách hàng
   useEffect(() => {
-    if (user && user.role !== 'admin') {
+    if (user && user.role !== 'admin' && user.role !== 'staff' && user.customer_id > 0) {
       customerAPI.getRecommendations(user.customer_id)
-        .then(data => setRecommendedProducts(data.slice(0, 5)))
-        .catch(() => setRecommendedProducts([]));
+        .then(data => {
+          if (data && data.length > 0) {
+            setRecommendedProducts(data.slice(0, 5));
+            setHasPersonalGoals(true);
+          } else {
+            setRecommendedProducts([]);
+            setHasPersonalGoals(false);
+          }
+        })
+        .catch(() => {
+          setRecommendedProducts([]);
+          setHasPersonalGoals(false);
+        });
     } else {
       setRecommendedProducts([]);
+      setHasPersonalGoals(false);
     }
   }, [user]);
 
@@ -186,39 +216,63 @@ export const Home = () => {
         </div>
       </div>
 
-      {/* GỢI Ý DÀNH RIÊNG CHO BẠN */}
-      {isAuthenticated && recommendedProducts.length > 0 && (
-        <section className="py-20 bg-gradient-to-b from-amber-50/50 to-white border-b border-gray-50">
-          <div className="px-4 md:px-10">
-            <div className="flex justify-between items-end mb-3">
-              <div className="flex items-center gap-3">
-                <Target size={28} className="text-amber-500" />
-                <h2 className="text-[32px] md:text-[48px] font-black uppercase tracking-tighter leading-none">Gợi ý cho bạn</h2>
-              </div>
-              <Link to="/account?tab=settings" className="text-xs font-bold uppercase tracking-widest flex items-center gap-1 hover:opacity-60 transition-opacity mb-2">
-                Cập nhật mục tiêu <ChevronRight size={14} />
-              </Link>
-            </div>
-            <p className="text-sm text-gray-400 font-medium mb-10">Dựa trên mục tiêu thể hình của bạn</p>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-10">
-              {recommendedProducts.map(product => (
-                <div key={product.product_id} className="relative">
-                  <ProductCard product={product} />
-                  {(product as any).matched_goals && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {(product as any).matched_goals.split(', ').map((goal: string) => (
-                        <span key={goal} className="text-[8px] font-black uppercase tracking-widest bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
-                          {goal}
-                        </span>
-                      ))}
-                    </div>
+      {/* GỢI Ý CHO BẠN - Luôn hiển thị */}
+      {(() => {
+        // Ưu tiên gợi ý cá nhân hóa, nếu không có thì dùng bestsellers
+        const displayProducts = hasPersonalGoals && recommendedProducts.length > 0 
+          ? recommendedProducts 
+          : bestsellerProducts;
+        const isPersonal = hasPersonalGoals && recommendedProducts.length > 0;
+        
+        if (displayProducts.length === 0) return null;
+        
+        return (
+          <section className="py-20 bg-gradient-to-b from-amber-50/50 to-white border-b border-gray-50">
+            <div className="px-4 md:px-10">
+              <div className="flex justify-between items-end mb-3">
+                <div className="flex items-center gap-3">
+                  {isPersonal ? (
+                    <Target size={28} className="text-amber-500" />
+                  ) : (
+                    <TrendingUp size={28} className="text-amber-500" />
                   )}
+                  <h2 className="text-[32px] md:text-[48px] font-black uppercase tracking-tighter leading-none">
+                    {isPersonal ? 'Gợi ý cho bạn' : 'Bán chạy nhất'}
+                  </h2>
                 </div>
-              ))}
+                {isPersonal ? (
+                  <Link to="/account?tab=settings" className="text-xs font-bold uppercase tracking-widest flex items-center gap-1 hover:opacity-60 transition-opacity mb-2">
+                    Cập nhật mục tiêu <ChevronRight size={14} />
+                  </Link>
+                ) : (
+                  <Link to="/men" className="text-xs font-bold uppercase tracking-widest flex items-center gap-1 hover:opacity-60 transition-opacity mb-2">
+                    Xem tất cả <ChevronRight size={14} />
+                  </Link>
+                )}
+              </div>
+              <p className="text-sm text-gray-400 font-medium mb-10">
+                {isPersonal ? 'Dựa trên mục tiêu thể hình của bạn' : 'Những sản phẩm được yêu thích nhất'}
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-10">
+                {displayProducts.map(product => (
+                  <div key={product.product_id} className="relative">
+                    <ProductCard product={product} />
+                    {isPersonal && (product as any).matched_goals && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {(product as any).matched_goals.split(', ').map((goal: string) => (
+                          <span key={goal} className="text-[8px] font-black uppercase tracking-widest bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                            {goal}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        );
+      })()}
 
       {/* Product Sections */}
       <ProductSection title="Dành cho nam" products={menProducts} link="/men" />

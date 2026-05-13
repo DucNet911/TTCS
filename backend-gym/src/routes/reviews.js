@@ -5,7 +5,10 @@ const pool = require('../config/db');
 router.get('/', async (req, res) => {
   try {
     const { product_id, customer_id } = req.query;
-    let sql = `SELECT r.*, c.name AS customer_name FROM REVIEWS r JOIN CUSTOMERS c ON r.customer_id = c.customer_id`;
+    let sql = `SELECT r.*, c.name AS customer_name, p.name AS product_name 
+               FROM REVIEWS r 
+               JOIN CUSTOMERS c ON r.customer_id = c.customer_id
+               JOIN PRODUCTS p ON r.product_id = p.product_id`;
     const conditions = [];
     const params = [];
     if (product_id) { conditions.push('r.product_id = ?'); params.push(product_id); }

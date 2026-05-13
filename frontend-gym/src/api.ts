@@ -128,8 +128,10 @@ export const wishlistAPI = {
 
 // ============ REVIEWS ============
 export const reviewAPI = {
+  getAll: () => fetchAPI<any[]>('/reviews'),
   getByProduct: (product_id: number) => fetchAPI<any[]>(`/reviews?product_id=${product_id}`),
   create: (data: any) => fetchAPI<any>('/reviews', { method: 'POST', body: JSON.stringify(data) }),
+  delete: (id: number) => fetchAPI<any>(`/reviews/${id}`, { method: 'DELETE' }),
 };
 
 // ============ VOUCHERS ============

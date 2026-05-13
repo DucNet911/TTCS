@@ -33,7 +33,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Hàm load giỏ hàng từ database
   const loadCartFromDB = useCallback(async () => {
-    if (!user || !user.customer_id) {
+    // Staff/Admin không có giỏ hàng (customer_id < 0)
+    if (!user || !user.customer_id || user.customer_id < 0 || user.role === 'admin' || user.role === 'staff') {
       setCart([]);
       return;
     }

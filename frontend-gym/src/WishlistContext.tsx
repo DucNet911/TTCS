@@ -24,7 +24,8 @@ export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Hàm load danh sách yêu thích từ database
   const loadWishlistFromDB = useCallback(async () => {
-    if (!user || !user.customer_id) {
+    // Staff/Admin không có wishlist (customer_id < 0)
+    if (!user || !user.customer_id || user.customer_id < 0 || user.role === 'admin' || user.role === 'staff') {
       setWishlist([]);
       wishlistItemMap = {};
       return;
