@@ -7,10 +7,12 @@ router.get('/', async (req, res) => {
   try {
     const { customer_id, status } = req.query;
     let sql = `SELECT o.*, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone,
-                      v.code AS voucher_code
+                      v.code AS voucher_code,
+                      p.status AS payment_status, p.payment_id
                FROM ORDERS o
                JOIN CUSTOMERS c ON o.customer_id = c.customer_id
-               LEFT JOIN VOUCHERS v ON o.voucher_id = v.voucher_id`;
+               LEFT JOIN VOUCHERS v ON o.voucher_id = v.voucher_id
+               LEFT JOIN PAYMENTS p ON o.order_id = p.order_id`;
     const conditions = [];
     const params = [];
 
@@ -187,29 +189,87 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /api/orders/:id/status - Cập nhật trạng thái đơn hàng
+// PUT /api/orders/:id/status - Cập nhật trạng thái đơn hàng (tuần tự)
 router.put('/:id/status', async (req, res) => {
+  const conn = await pool.getConnection();
   try {
+    await conn.beginTransaction();
     const { status } = req.body;
-    const validStatuses = ['Pending', 'Confirmed', 'Shipping', 'Completed', 'Canceled'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({ error: 'Trạng thái không hợp lệ' });
+
+    // Lấy đơn hàng hiện tại
+    const [orders] = await conn.query('SELECT * FROM ORDERS WHERE order_id = ?', [req.params.id]);
+    if (orders.length === 0) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
     }
 
-    const [result] = await pool.query('UPDATE ORDERS SET status = ? WHERE order_id = ?', [status, req.params.id]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
+    const currentStatus = orders[0].status;
+    const paymentMethod = orders[0].payment_method;
 
-    // Nếu hủy đơn, hoàn lại tồn kho
+    // Kiểm tra chuyển trạng thái tuần tự
+    const validTransitions = {
+      'Pending': ['Confirmed', 'Canceled'],
+      'Confirmed': ['Shipping', 'Canceled'],
+      'Shipping': ['Completed', 'Canceled'],
+      'Completed': [],
+      'Canceled': [],
+    };
+
+    if (!validTransitions[currentStatus] || !validTransitions[currentStatus].includes(status)) {
+      await conn.rollback();
+      return res.status(400).json({ error: `Không thể chuyển từ "${currentStatus}" sang "${status}"` });
+    }
+
+    // Cập nhật trạng thái đơn hàng
+    await conn.query('UPDATE ORDERS SET status = ? WHERE order_id = ?', [status, req.params.id]);
+
+    // Đồng bộ trạng thái SHIPPING
+    const shippingMap = {
+      'Confirmed': 'Preparing',
+      'Shipping': 'In Transit',
+      'Completed': 'Delivered',
+      'Canceled': 'Returned',
+    };
+    if (shippingMap[status]) {
+      const updates = ['status = ?'];
+      const params = [shippingMap[status]];
+      if (status === 'Shipping') {
+        updates.push('ship_date = NOW()');
+      }
+      if (status === 'Completed') {
+        updates.push('delivery_date = NOW()');
+      }
+      params.push(req.params.id);
+      await conn.query(`UPDATE SHIPPING SET ${updates.join(', ')} WHERE order_id = ?`, params);
+    }
+
+    // Đồng bộ trạng thái PAYMENTS
+    if (status === 'Completed') {
+      // COD: tự động xác nhận thanh toán khi giao thành công
+      if (paymentMethod === 'COD') {
+        await conn.query('UPDATE PAYMENTS SET status = "Success" WHERE order_id = ?', [req.params.id]);
+      }
+      // Bank Transfer: cũng auto-confirm khi hoàn thành (admin đã xác nhận trước đó)
+      if (paymentMethod === 'Bank Transfer') {
+        await conn.query('UPDATE PAYMENTS SET status = "Success" WHERE order_id = ?', [req.params.id]);
+      }
+    }
     if (status === 'Canceled') {
-      const [items] = await pool.query('SELECT sku_id, quantity FROM ORDER_ITEMS WHERE order_id = ?', [req.params.id]);
+      await conn.query('UPDATE PAYMENTS SET status = "Failed" WHERE order_id = ?', [req.params.id]);
+      // Hoàn lại tồn kho
+      const [items] = await conn.query('SELECT sku_id, quantity FROM ORDER_ITEMS WHERE order_id = ?', [req.params.id]);
       for (const item of items) {
-        await pool.query('UPDATE PRODUCT_SKUS SET stock = stock + ? WHERE sku_id = ?', [item.quantity, item.sku_id]);
+        await conn.query('UPDATE PRODUCT_SKUS SET stock = stock + ? WHERE sku_id = ?', [item.quantity, item.sku_id]);
       }
     }
 
-    res.json({ message: 'Cập nhật trạng thái đơn hàng thành công' });
+    await conn.commit();
+    res.json({ message: 'Cập nhật trạng thái thành công' });
   } catch (err) {
+    await conn.rollback();
     res.status(500).json({ error: err.message });
+  } finally {
+    conn.release();
   }
 });
 

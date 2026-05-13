@@ -19,6 +19,7 @@ import { InfoPage } from './pages/InfoPage';
 import { AdminOrders } from './pages/AdminOrders';
 import { AdminProducts } from './pages/AdminProducts';
 import { AdminCustomers } from './pages/AdminCustomers';
+import { AdminReports } from './pages/AdminReports';
 import { Link } from 'react-router-dom';
 
 function ScrollToTop() {
@@ -59,6 +60,7 @@ function AppContent() {
         <Route path="/admin/orders" element={<AdminOrders />} />
         <Route path="/admin/products" element={<AdminProducts />} />
         <Route path="/admin/customers" element={<AdminCustomers />} />
+        <Route path="/admin/reports" element={<AdminReports />} />
       </Routes>
 
       {!isCheckoutPage && !isAdminPage && (

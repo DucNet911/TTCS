@@ -352,7 +352,7 @@ Mô tả từng lớp:
 |     |                  |      |          'Completed','Canceled')                   |
 |     |                  |      | - shipping_address TEXT NOT NULL                   |
 |     |                  |      | - payment_method ENUM('COD','Credit Card',         |
-|     |                  |      |          'E-wallet')                               |
+|     |                  |      |          'Bank Transfer')                          |
 |     |                  |      | - updated_at ON UPDATE CURRENT_TIMESTAMP           |
 +-----+------------------+------+------------------------------------------------------+
 | 19  | ORDER_ITEMS      |  5   | Chi tiết sản phẩm trong đơn hàng. Lưu giá tại    |
@@ -736,8 +736,10 @@ Mô tả nghiệp vụ:
         + Placeholder thông báo nhập địa chỉ để xem phương thức vận chuyển.
     - Section "Thanh toán":
         + Thanh toán khi nhận hàng (COD) — mặc định active.
+        + Chuyển khoản ngân hàng — Khi chọn sẽ hiển thị thông tin STK và mã QR Code.
         + Thẻ tín dụng — disabled, hiển thị "Sắp ra mắt".
     - Nút "Đặt hàng ngay" (có icon khóa bảo mật).
+    - Sau khi đặt hàng thành công: Chuyển sang giao diện "Trang Cảm Ơn" (Thank you page), hiển thị mã đơn hàng, thông tin chuyển khoản (nếu chọn Chuyển khoản) và nút "Quay lại trang chủ" / "Xem đơn hàng".
 
   Cột phải — Tóm tắt đơn hàng:
     - Danh sách sản phẩm trong giỏ: ảnh thumbnail (với badge số lượng
@@ -785,8 +787,8 @@ Mô tả nghiệp vụ:
     - Mỗi đơn hiển thị dạng thẻ: header (mã đơn, ngày, tổng tiền,
       badge trạng thái) + danh sách sản phẩm (ảnh, tên, size/màu,
       số lượng, giá).
-    - Icon trạng thái màu: Xanh lá (Hoàn thành), Xanh dương (Đang xử
-      lý), Tím (Đang vận chuyển), Vàng (Chờ), Đỏ (Đã hủy).
+    - Icon trạng thái màu: Xanh lá (Hoàn thành/Completed), Xanh dương (Đang chuẩn bị/Confirmed),
+      Tím (Đang giao hàng/Shipping), Vàng (Chờ xác nhận/Pending), Đỏ (Đã hủy/Canceled).
 
   Tab "Cài đặt":
     - Section "Chỉnh sửa thông tin cá nhân": form inline với 3 trường
@@ -887,8 +889,8 @@ Trang: /admin/orders
 Danh sách đơn hàng:
   - Gọi GET /api/orders để lấy tất cả đơn hàng (kèm tên khách, email,
     mã voucher qua JOIN).
-  - Tabs lọc trạng thái: Tất cả / Chờ thanh toán / Đang giao hàng /
-    Hoàn thành / Đã hủy.
+  - Tabs lọc trạng thái: Tất cả / Chờ xác nhận / Đang chuẩn bị /
+    Đang giao hàng / Chờ thanh toán / Hoàn thành / Đã hủy.
   - Ô tìm kiếm: lọc theo mã đơn, tên khách hoặc địa chỉ giao hàng.
   - Bảng: Mã ĐH (click để xem chi tiết), Ngày tạo, Tên khách, Tổng
     tiền, Badge trạng thái (màu sắc theo trạng thái), Nút Sửa + Xóa.
@@ -901,11 +903,11 @@ Chi tiết đơn hàng (Drawer):
   - Hiển thị: Thông tin khách hàng (tên, email, địa chỉ giao hàng),
     Danh sách sản phẩm (ảnh, tên, size/màu, số lượng, giá), Phần cập
     nhật trạng thái.
-  - Grid 5 nút trạng thái: Chờ thanh toán / Đang xử lý / Đang giao
-    hàng / Đã giao hàng / Đã hủy. Trạng thái hiện tại có viền đậm.
-    Khi click → PUT /api/orders/:id/status.
-    Đặc biệt: khi set thành "Canceled" → Backend tự động hoàn trả
-    tồn kho cho tất cả items trong đơn.
+  - Quản lý trạng thái tuần tự: Chờ xác nhận → Đang chuẩn bị → Đang giao hàng → Hoàn thành.
+    Hiển thị nút xác nhận để chuyển sang trạng thái tiếp theo (vd: "Xác nhận đơn hàng", "Bắt đầu giao hàng").
+    Khi click → PUT /api/orders/:id/status. Backend sử dụng transaction để tự động đồng bộ trạng thái giữa ORDERS, PAYMENTS và SHIPPING.
+  - Xử lý thanh toán: Phân biệt tự động xác nhận đối với COD và xác nhận thủ công (nút "Xác nhận đã nhận tiền") đối với Bank Transfer.
+  - Hủy đơn: Nút "Hủy đơn hàng" luôn có sẵn. Khi set thành "Canceled" → Backend tự động hoàn trả tồn kho.
   - Hiển thị giảm giá (nếu có), tổng cộng, nút "In hóa đơn".
   - Click vùng tối bên ngoài → đóng Drawer.
 

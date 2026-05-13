@@ -1,26 +1,33 @@
 import React, { useState } from 'react';
 import { useCart } from '../CartContext';
-import { ChevronLeft, Info, Lock } from 'lucide-react';
+import { useAuth } from '../AuthContext';
+import { orderAPI } from '../api';
+import { ChevronLeft, Info, Lock, Loader2, CheckCircle, Home, Landmark } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 
 export const Checkout = () => {
-  const { cart, totalPrice } = useCart();
+  const { cart, totalPrice, clearCart } = useCart();
+  const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [address, setAddress] = useState('');
+  const [email, setEmail] = useState(user?.email || '');
+  const [firstName, setFirstName] = useState(user?.name?.split(' ').pop() || '');
+  const [lastName, setLastName] = useState(user?.name?.split(' ').slice(0, -1).join(' ') || '');
+  const [address, setAddress] = useState(user?.address || '');
   const [city, setCity] = useState('');
   const [postalCode, setPostalCode] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(user?.phone || '');
   const [discountCode, setDiscountCode] = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState<any>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'Bank Transfer'>('COD');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderError, setOrderError] = useState('');
+  const [orderSuccess, setOrderSuccess] = useState<number | null>(null);
   const [voucherError, setVoucherError] = useState('');
 
   if (cart.length === 0) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <h2 className="text-[18px] font-black uppercase mb-6">Giỏ hàng của bạn đang trống</h2>
+        <h2 className="text-[18px] font-black uppercase mb-6">Cảm ơn quý khách đã mua hàng của chúng tôi</h2>
         <Link to="/" className="bg-brand-dark text-white px-8 py-4 uppercase text-xs font-black tracking-widest hover:bg-gray-800 transition-colors">
           Quay lại mua sắm
         </Link>
@@ -32,13 +39,13 @@ export const Checkout = () => {
 
   let discountAmount = 0;
   if (appliedVoucher) {
-    if (appliedVoucher.discount_type === 'percentage') {
-      discountAmount = (totalPrice * appliedVoucher.discount_value) / 100;
-      if (appliedVoucher.max_discount_amount && discountAmount > appliedVoucher.max_discount_amount) {
-        discountAmount = appliedVoucher.max_discount_amount;
+    if (appliedVoucher.discount_type === 'Percent') {
+      discountAmount = (totalPrice * Number(appliedVoucher.discount_value)) / 100;
+      if (appliedVoucher.max_discount_amount && discountAmount > Number(appliedVoucher.max_discount_amount)) {
+        discountAmount = Number(appliedVoucher.max_discount_amount);
       }
-    } else if (appliedVoucher.discount_type === 'fixed') {
-      discountAmount = appliedVoucher.discount_value;
+    } else if (appliedVoucher.discount_type === 'Fixed') {
+      discountAmount = Number(appliedVoucher.discount_value);
     }
   }
 
@@ -64,6 +71,120 @@ export const Checkout = () => {
       setVoucherError('Không thể kiểm tra mã giảm giá');
     }
   };
+
+  const handlePlaceOrder = async () => {
+    setOrderError('');
+
+    if (!isAuthenticated || !user) {
+      setOrderError('Vui lòng đăng nhập để đặt hàng.');
+      return;
+    }
+
+    // Validate form
+    if (!firstName.trim() || !lastName.trim()) {
+      setOrderError('Vui lòng nhập đầy đủ họ tên.');
+      return;
+    }
+    if (!address.trim()) {
+      setOrderError('Vui lòng nhập địa chỉ giao hàng.');
+      return;
+    }
+    if (!phone.trim()) {
+      setOrderError('Vui lòng nhập số điện thoại.');
+      return;
+    }
+
+    // Build items array for API
+    const orderItems = cart.map(item => ({
+      sku_id: item.sku?.sku_id,
+      quantity: item.quantity,
+      price_at_order: item.sku?.price || item.product.base_price,
+    }));
+
+    // Check all items have sku_id
+    if (orderItems.some(i => !i.sku_id)) {
+      setOrderError('Có sản phẩm trong giỏ hàng không hợp lệ. Vui lòng xóa và thêm lại.');
+      return;
+    }
+
+    const fullAddress = [address, city, postalCode].filter(Boolean).join(', ');
+
+    setIsSubmitting(true);
+    try {
+      const result = await orderAPI.create({
+        customer_id: user.customer_id,
+        items: orderItems,
+        shipping_address: fullAddress,
+        payment_method: paymentMethod,
+        voucher_id: appliedVoucher?.voucher_id || null,
+        discount_amount: discountAmount,
+      });
+
+      setOrderSuccess(result.order_id);
+      await clearCart();
+    } catch (err: any) {
+      setOrderError(err.message || 'Đặt hàng thất bại. Vui lòng thử lại.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Thank you page
+  if (orderSuccess) {
+    return (
+      <div className="min-h-screen bg-brand-light flex flex-col items-center justify-center p-6 text-center">
+        <div className="bg-white p-12 md:p-16 rounded-sm shadow-sm max-w-lg w-full space-y-8">
+          <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto">
+            <CheckCircle size={40} className="text-green-500" />
+          </div>
+          <div className="space-y-3">
+            <h1 className="text-[28px] font-black uppercase tracking-tighter">Cảm ơn bạn!</h1>
+            <p className="text-gray-500 font-medium">Đơn hàng của bạn đã được đặt thành công.</p>
+            <p className="text-sm text-gray-400">
+              Mã đơn hàng: <span className="font-black text-brand-dark text-base">#{orderSuccess}</span>
+            </p>
+          </div>
+
+          {paymentMethod === 'Bank Transfer' && (
+            <div className="bg-blue-50 border-2 border-blue-100 rounded-sm p-6 text-left space-y-3">
+              <div className="flex items-center gap-2">
+                <Landmark size={16} className="text-blue-600" />
+                <p className="text-xs font-black uppercase tracking-widest text-blue-600">Thông tin chuyển khoản</p>
+              </div>
+              <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                <div className="flex-1 space-y-4">
+                  <div className="space-y-2 text-sm">
+                    <p><span className="text-gray-400 font-bold">Chủ TK:</span> <span className="font-black">LE MINH DUC</span></p>
+                    <p><span className="text-gray-400 font-bold">Số TK:</span> <span className="font-black">0096945499999</span></p>
+                    <p><span className="text-gray-400 font-bold">Nội dung CK:</span> <span className="font-black text-blue-600">FITGEAR {orderSuccess}</span></p>
+                  </div>
+                  <p className="text-[10px] text-blue-500 font-bold uppercase tracking-widest">Vui lòng chuyển khoản đúng nội dung để xác nhận nhanh hơn</p>
+                </div>
+                <div className="w-40 shrink-0 bg-white p-2 rounded-xl shadow-sm border border-blue-100">
+                  <img src="/qr-code.jpg" alt="QR Code" className="w-full h-auto rounded-lg" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-4 pt-4">
+            <Link
+              to="/"
+              className="flex-1 bg-brand-dark text-white px-8 py-4 uppercase text-xs font-black tracking-widest hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+            >
+              <Home size={16} /> Quay lại trang chủ
+            </Link>
+            <Link
+              to="/account"
+              className="flex-1 border-2 border-brand-dark text-brand-dark px-8 py-4 uppercase text-xs font-black tracking-widest hover:bg-brand-dark hover:text-white transition-colors text-center"
+            >
+              Xem đơn hàng
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -93,7 +214,7 @@ export const Checkout = () => {
             <section className="space-y-4">
               <div className="flex justify-between items-end">
                 <h2 className="text-[12px] font-black uppercase tracking-wider">Liên hệ</h2>
-                <button className="text-[11px] font-bold uppercase tracking-widest underline underline-offset-4">Đăng nhập</button>
+
               </div>
               <div className="space-y-4">
                 <div className="relative">
@@ -190,12 +311,35 @@ export const Checkout = () => {
                 <p className="text-[11px] text-gray-400 font-medium uppercase tracking-widest">Tất cả giao dịch đều được bảo mật và mã hóa.</p>
               </div>
               <div className="border-2 border-gray-200 rounded-sm divide-y divide-gray-200">
-                <label className="flex items-center justify-between p-4 cursor-pointer bg-gray-50/50">
+                <label className={`flex items-center justify-between p-4 cursor-pointer ${paymentMethod === 'COD' ? 'bg-gray-50/50' : ''}`}>
                   <div className="flex items-center gap-3">
-                    <input type="radio" name="payment" defaultChecked className="w-4 h-4 accent-brand-dark" />
+                    <input type="radio" name="payment" checked={paymentMethod === 'COD'} onChange={() => setPaymentMethod('COD')} className="w-4 h-4 accent-brand-dark" />
                     <span className="text-sm font-bold uppercase tracking-widest">Thanh toán khi nhận hàng (COD)</span>
                   </div>
                 </label>
+                <div>
+                  <label className={`flex items-center justify-between p-4 cursor-pointer ${paymentMethod === 'Bank Transfer' ? 'bg-gray-50/50' : ''}`}>
+                    <div className="flex items-center gap-3">
+                      <input type="radio" name="payment" checked={paymentMethod === 'Bank Transfer'} onChange={() => setPaymentMethod('Bank Transfer')} className="w-4 h-4 accent-brand-dark" />
+                      <span className="text-sm font-bold uppercase tracking-widest">Chuyển khoản ngân hàng</span>
+                    </div>
+                    <Landmark size={18} className="text-gray-400" />
+                  </label>
+                  {paymentMethod === 'Bank Transfer' && (
+                    <div className="px-4 pb-4 space-y-3">
+                      <div className="bg-blue-50 border border-blue-100 rounded-sm p-4 flex flex-col md:flex-row gap-4 items-center md:items-start justify-between">
+                        <div className="space-y-2 text-sm">
+                          <p><span className="text-gray-400 font-bold text-xs uppercase tracking-widest">Chủ TK:</span> <span className="font-black">LE MINH DUC</span></p>
+                          <p><span className="text-gray-400 font-bold text-xs uppercase tracking-widest">Số TK:</span> <span className="font-black">0096945499999</span></p>
+                          <p className="text-[10px] text-blue-500 font-bold uppercase tracking-widest pt-2">Nội dung CK: FITGEAR + Mã đơn hàng</p>
+                        </div>
+                        <div className="w-24 shrink-0 bg-white p-1.5 rounded-lg shadow-sm border border-blue-100">
+                          <img src="/qr-code.jpg" alt="QR Code" className="w-full h-auto rounded-md" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <label className="flex items-center justify-between p-4 cursor-pointer opacity-50">
                   <div className="flex items-center gap-3">
                     <input type="radio" name="payment" disabled className="w-4 h-4 accent-brand-dark" />
@@ -210,12 +354,28 @@ export const Checkout = () => {
               </div>
             </section>
 
+            {orderError && (
+              <div className="p-4 bg-red-50 border-2 border-red-200 rounded-sm">
+                <p className="text-sm font-bold text-red-600">{orderError}</p>
+              </div>
+            )}
+
             <div className="pt-8">
+              {!isAuthenticated && (
+                <p className="text-center text-sm text-gray-500 mb-4">
+                  Vui lòng <Link to="/login" className="text-brand-dark font-bold underline">đăng nhập</Link> để đặt hàng.
+                </p>
+              )}
               <button
-                className="w-full bg-brand-dark text-white py-6 font-black uppercase text-sm tracking-[0.3em] hover:bg-gray-800 transition-all flex items-center justify-center gap-3"
+                onClick={handlePlaceOrder}
+                disabled={isSubmitting || !isAuthenticated}
+                className="w-full bg-brand-dark text-white py-6 font-black uppercase text-sm tracking-[0.3em] hover:bg-gray-800 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Lock size={16} />
-                Đặt hàng ngay
+                {isSubmitting ? (
+                  <><Loader2 size={16} className="animate-spin" /> Đang xử lý...</>
+                ) : (
+                  <><Lock size={16} /> Đặt hàng ngay</>
+                )}
               </button>
             </div>
 

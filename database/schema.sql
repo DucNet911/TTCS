@@ -173,7 +173,7 @@ CREATE TABLE ORDERS (
     discount_amount DECIMAL(10, 2) DEFAULT 0,
     status ENUM('Pending', 'Confirmed', 'Shipping', 'Completed', 'Canceled') DEFAULT 'Pending',
     shipping_address TEXT NOT NULL,
-    payment_method ENUM('COD', 'Credit Card', 'E-wallet') NOT NULL,
+    payment_method ENUM('COD', 'Credit Card', 'Bank Transfer') NOT NULL,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES CUSTOMERS(customer_id),
     FOREIGN KEY (staff_id) REFERENCES STAFF(staff_id) ON DELETE SET NULL,

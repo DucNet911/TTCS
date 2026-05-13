@@ -112,7 +112,7 @@ export const AdminCustomers = () => {
             { icon: FileText, label: 'Đơn hàng', path: '/admin/orders', active: false },
             { icon: Tag, label: 'Sản phẩm', path: '/admin/products', active: false },
             { icon: Users, label: 'Khách hàng', path: '/admin/customers', active: true },
-            { icon: PieChart, label: 'Báo cáo', path: '#', active: false },
+            { icon: PieChart, label: 'Báo cáo', path: '/admin/reports', active: false },
           ].map((item) => (
             <Link
               key={item.label}

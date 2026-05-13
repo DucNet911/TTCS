@@ -29,6 +29,7 @@ export const Account = () => {
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
+  const [editBirthDate, setEditBirthDate] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState('');
   const [saveError, setSaveError] = useState('');
@@ -45,6 +46,16 @@ export const Account = () => {
       setEditName(user.name || '');
       setEditPhone(user.phone || '');
       setEditAddress(user.address || '');
+      
+      if (user.birth_date) {
+        try {
+          setEditBirthDate(new Date(user.birth_date).toISOString().split('T')[0]);
+        } catch {
+          setEditBirthDate('');
+        }
+      } else {
+        setEditBirthDate('');
+      }
     }
   }, [user]);
 
@@ -73,22 +84,22 @@ export const Account = () => {
 
   const getStatusIcon = (status: Order['status']) => {
     switch (status) {
-      case 'delivered': return <CheckCircle2 size={16} className="text-green-500" />;
-      case 'processing': return <Clock size={16} className="text-blue-500" />;
-      case 'shipped': return <Truck size={16} className="text-purple-500" />;
-      case 'pending': return <AlertCircle size={16} className="text-yellow-500" />;
-      case 'cancelled': return <AlertCircle size={16} className="text-red-500" />;
+      case 'Completed': return <CheckCircle2 size={16} className="text-green-500" />;
+      case 'Confirmed': return <Clock size={16} className="text-blue-500" />;
+      case 'Shipping': return <Truck size={16} className="text-purple-500" />;
+      case 'Pending': return <AlertCircle size={16} className="text-yellow-500" />;
+      case 'Canceled': return <AlertCircle size={16} className="text-red-500" />;
       default: return null;
     }
   };
 
   const getStatusText = (status: Order['status']) => {
     switch (status) {
-      case 'delivered': return 'Đã giao hàng';
-      case 'processing': return 'Đang xử lý';
-      case 'shipped': return 'Đang vận chuyển';
-      case 'pending': return 'Chờ thanh toán';
-      case 'cancelled': return 'Đã hủy';
+      case 'Completed': return 'Hoàn thành';
+      case 'Confirmed': return 'Đang chuẩn bị';
+      case 'Shipping': return 'Đang giao hàng';
+      case 'Pending': return 'Chờ xác nhận';
+      case 'Canceled': return 'Đã hủy';
       default: return status;
     }
   };
@@ -243,7 +254,7 @@ export const Account = () => {
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ngày sinh</p>
-                      <p className="text-sm font-bold">{user.birth_date || 'Chưa cập nhật'}</p>
+                      <p className="text-sm font-bold">{user.birth_date ? new Date(user.birth_date).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}</p>
                     </div>
                     <div className="space-y-1 md:col-span-2">
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Địa chỉ</p>
@@ -432,7 +443,16 @@ export const Account = () => {
                             className="w-full bg-white border-none py-3 px-4 text-xs font-bold outline-none focus:ring-1 focus:ring-brand-dark transition-all"
                           />
                         </div>
-                        <div className="space-y-2 md:col-span-2">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Ngày sinh</label>
+                          <input 
+                            type="date" 
+                            value={editBirthDate}
+                            onChange={(e) => setEditBirthDate(e.target.value)}
+                            className="w-full bg-white border-none py-3 px-4 text-xs font-bold outline-none focus:ring-1 focus:ring-brand-dark transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Địa chỉ</label>
                           <input 
                             type="text" 
@@ -453,6 +473,7 @@ export const Account = () => {
                               name: editName,
                               phone: editPhone,
                               address: editAddress,
+                              birth_date: editBirthDate || undefined,
                             });
                             setSaveSuccess('Cập nhật thông tin thành công!');
                             setTimeout(() => setSaveSuccess(''), 3000);

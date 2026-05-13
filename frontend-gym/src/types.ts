@@ -121,9 +121,9 @@ export interface Order {
   order_date: string;
   total_amount: number;
   discount_amount?: number;
-  status: 'Pending' | 'Confirmed' | 'Shipping' | 'Completed' | 'Canceled' | 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  status: 'Pending' | 'Confirmed' | 'Shipping' | 'Completed' | 'Canceled';
   shipping_address: string;
-  payment_method: 'COD' | 'Credit Card' | 'E-wallet' | 'cod' | 'credit_card' | 'e_wallet';
+  payment_method: 'COD' | 'Credit Card' | 'Bank Transfer';
   updated_at?: string;
   // Joined fields
   customer_name?: string;
@@ -133,6 +133,9 @@ export interface Order {
   items?: OrderItem[];
   payment?: Payment;
   shipping?: Shipping;
+  // From list JOIN
+  payment_status?: string;
+  payment_id?: number;
 }
 
 export interface OrderItem {

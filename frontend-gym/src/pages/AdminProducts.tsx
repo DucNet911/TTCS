@@ -231,7 +231,7 @@ export const AdminProducts = () => {
             { icon: FileText, label: 'Đơn hàng', path: '/admin/orders', active: false },
             { icon: Tag, label: 'Sản phẩm', path: '/admin/products', active: true },
             { icon: Users, label: 'Khách hàng', path: '/admin/customers', active: false },
-            { icon: PieChart, label: 'Báo cáo', path: '#', active: false },
+            { icon: PieChart, label: 'Báo cáo', path: '/admin/reports', active: false },
           ].map((item) => (
             <Link
               key={item.label}
@@ -341,7 +341,7 @@ export const AdminProducts = () => {
                              <span className="bg-brand-dark text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">
                                {product.category_name || ''}
                              </span>
-                             {product.is_deleted && (
+                             {Boolean(product.is_deleted) && (
                                <span className="bg-red-500 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">
                                  Đã ẩn
                                </span>

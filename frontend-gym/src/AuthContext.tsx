@@ -127,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser);
   };
 
-  const updateProfile = async (data: { name?: string; phone?: string; address?: string }) => {
+  const updateProfile = async (data: { name?: string; phone?: string; address?: string; birth_date?: string }) => {
     if (!user) throw new Error('Chưa đăng nhập');
 
     const res = await fetch(`${API_BASE}/customers/${user.customer_id}`, {

@@ -31,24 +31,36 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Order, OrderItem, Customer } from '../types';
-import { orderAPI, customerAPI } from '../api';
+import { orderAPI, customerAPI, paymentAPI } from '../api';
 import { useAuth } from '../AuthContext';
 import { Navigate, Link } from 'react-router-dom';
 
-const STATUS_COLORS = {
-  pending: 'bg-gray-50 text-gray-600 border-gray-100',
-  processing: 'bg-gray-100 text-gray-800 border-gray-200',
-  shipped: 'bg-black text-white border-black',
-  delivered: 'bg-black text-white border-black',
-  cancelled: 'bg-red-50 text-red-600 border-red-100',
+const STATUS_COLORS: Record<string, string> = {
+  'Pending': 'bg-yellow-50 text-yellow-600 border-yellow-200',
+  'Confirmed': 'bg-blue-50 text-blue-600 border-blue-200',
+  'Shipping': 'bg-purple-50 text-purple-600 border-purple-200',
+  'Completed': 'bg-green-50 text-green-600 border-green-200',
+  'Canceled': 'bg-red-50 text-red-600 border-red-100',
 };
 
-const STATUS_LABELS = {
-  pending: 'Chờ thanh toán',
-  processing: 'Đang xử lý',
-  shipped: 'Đang giao hàng',
-  delivered: 'Đã giao hàng',
-  cancelled: 'Đã hủy',
+const STATUS_LABELS: Record<string, string> = {
+  'Pending': 'Chờ xác nhận',
+  'Confirmed': 'Đang chuẩn bị',
+  'Shipping': 'Đang giao hàng',
+  'Completed': 'Hoàn thành',
+  'Canceled': 'Đã hủy',
+};
+
+const NEXT_STATUS: Record<string, string> = {
+  'Pending': 'Confirmed',
+  'Confirmed': 'Shipping',
+  'Shipping': 'Completed',
+};
+
+const NEXT_STATUS_LABEL: Record<string, string> = {
+  'Pending': 'Xác nhận đơn hàng',
+  'Confirmed': 'Bắt đầu giao hàng',
+  'Shipping': 'Hoàn thành giao hàng',
 };
 
 export const AdminOrders = () => {
@@ -90,7 +102,10 @@ export const AdminOrders = () => {
         (order.customer_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.shipping_address.toLowerCase().includes(searchQuery.toLowerCase());
       
-      const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+      const matchesStatus = statusFilter === 'all' 
+        || (statusFilter === 'payment_pending' 
+            ? (order.payment_status === 'Pending' && order.status !== 'Canceled' && order.status !== 'Pending')
+            : order.status === statusFilter);
       
       return matchesSearch && matchesStatus;
     });
@@ -101,8 +116,8 @@ export const AdminOrders = () => {
       await orderAPI.updateStatus(orderId, newStatus);
       const updated = await orderAPI.getAll();
       setOrders(updated);
-    } catch (err) {
-      alert('Lỗi khi cập nhật trạng thái');
+    } catch (err: any) {
+      alert(err.message || 'Lỗi khi cập nhật trạng thái');
     }
   };
 
@@ -143,7 +158,7 @@ export const AdminOrders = () => {
             { icon: FileText, label: 'Đơn hàng', path: '/admin/orders', active: true },
             { icon: Tag, label: 'Sản phẩm', path: '/admin/products', active: false },
             { icon: Users, label: 'Khách hàng', path: '/admin/customers', active: false },
-            { icon: PieChart, label: 'Báo cáo', path: '#', active: false },
+            { icon: PieChart, label: 'Báo cáo', path: '/admin/reports', active: false },
           ].map((item) => (
             <Link
               key={item.label}
@@ -210,10 +225,12 @@ export const AdminOrders = () => {
                 <div className="flex border-b border-gray-100 px-6 overflow-x-auto scrollbar-hide">
                   {[
                     { id: 'all', label: 'Tất cả' },
-                    { id: 'pending', label: 'Chờ thanh toán' },
-                    { id: 'shipping', label: 'Đang giao hàng' },
-                    { id: 'delivered', label: 'Hoàn thành' },
-                    { id: 'cancelled', label: 'Đã hủy' },
+                    { id: 'Pending', label: 'Chờ xác nhận' },
+                    { id: 'Confirmed', label: 'Đang chuẩn bị' },
+                    { id: 'Shipping', label: 'Đang giao hàng' },
+                    { id: 'payment_pending', label: 'Chờ thanh toán' },
+                    { id: 'Completed', label: 'Hoàn thành' },
+                    { id: 'Canceled', label: 'Đã hủy' },
                   ].map((tab) => (
                     <button
                       key={tab.id}
@@ -280,19 +297,18 @@ export const AdminOrders = () => {
                               <p className="text-sm font-black text-gray-900">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.total_amount)}</p>
                             </td>
                             <td className="px-6 py-4 border-b border-gray-50 text-center">
-                              <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${
-                                order.status === 'delivered' ? 'bg-black text-white border-black' :
-                                order.status === 'pending' ? 'bg-gray-100 text-gray-600 border-gray-200' :
-                                order.status === 'cancelled' ? 'bg-red-50 text-red-600 border-red-100' :
-                                order.status === 'shipped' ? 'bg-gray-800 text-white border-gray-800' :
-                                'bg-white text-gray-600 border-gray-200'
-                              }`}>
-                                {STATUS_LABELS[order.status]}
+                              <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${STATUS_COLORS[order.status] || 'bg-white text-gray-600 border-gray-200'}`}>
+                                {STATUS_LABELS[order.status] || order.status}
                               </span>
+                              {order.payment_status === 'Pending' && order.status !== 'Pending' && order.status !== 'Canceled' && (
+                                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border bg-orange-50 text-orange-600 border-orange-200 mt-1 inline-block">
+                                  {order.payment_method === 'COD' ? 'Chờ thu tiền' : 'Chờ CK'}
+                                </span>
+                              )}
                             </td>
                             <td className="px-6 py-4 border-b border-gray-50 text-right">
                               <div className="flex items-center justify-end gap-3 text-gray-400">
-                                 <button className="p-2 hover:bg-black hover:text-white rounded-lg transition-all" title="Chỉnh sửa"><Edit size={16} /></button>
+                                 <button onClick={() => setSelectedOrderId(order.order_id)} className="p-2 hover:bg-black hover:text-white rounded-lg transition-all" title="Chi tiết"><Edit size={16} /></button>
                                  <button 
                                   onClick={() => handleDelete(order.order_id)} 
                                   className="p-2 hover:bg-red-600 hover:text-white rounded-lg transition-all" 
@@ -727,26 +743,88 @@ export const AdminOrders = () => {
                   </section>
 
                   <section>
-                    <div className="flex items-center justify-between mb-6 border-b border-gray-50 pb-4">
-                       <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-300">Cập nhật trạng thái</h3>
-                       <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${STATUS_COLORS[activeOrder.status]}`}>
-                         Hiện tại: {STATUS_LABELS[activeOrder.status]}
-                       </span>
+                    <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-300 mb-6 border-b border-gray-50 pb-4">Trạng thái đơn hàng</h3>
+                    
+                    {/* Current status */}
+                    <div className="flex items-center gap-3 mb-6">
+                      <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${STATUS_COLORS[activeOrder.status] || ''}`}>
+                        {STATUS_LABELS[activeOrder.status] || activeOrder.status}
+                      </span>
+                      <span className="text-[10px] text-gray-400 font-bold">
+                        PTTT: {activeOrder.payment_method === 'COD' ? 'Thanh toán khi nhận hàng' : activeOrder.payment_method === 'Bank Transfer' ? 'Chuyển khoản NH' : activeOrder.payment_method}
+                      </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      {Object.entries(STATUS_LABELS).map(([value, label]) => (
+
+                    {/* Payment status */}
+                    {activeOrder.payment_status && activeOrder.status !== 'Canceled' && (
+                      <div className={`p-4 rounded-2xl mb-6 border ${
+                        activeOrder.payment_status === 'Success' ? 'bg-green-50 border-green-200' :
+                        activeOrder.payment_status === 'Failed' ? 'bg-red-50 border-red-200' :
+                        'bg-orange-50 border-orange-200'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">Thanh toán</p>
+                            <p className={`text-xs font-black uppercase ${
+                              activeOrder.payment_status === 'Success' ? 'text-green-600' :
+                              activeOrder.payment_status === 'Failed' ? 'text-red-600' :
+                              'text-orange-600'
+                            }`}>
+                              {activeOrder.payment_status === 'Success' ? 'Đã thanh toán' :
+                               activeOrder.payment_status === 'Failed' ? 'Thất bại' :
+                               activeOrder.payment_method === 'COD' ? 'Chờ thu tiền khi giao' : 'Chờ xác nhận chuyển khoản'}
+                            </p>
+                          </div>
+                          {activeOrder.payment_status === 'Pending' && activeOrder.payment_method === 'Bank Transfer' && activeOrder.payment_id && (
+                            <button
+                              onClick={async () => {
+                                if (!confirm('Xác nhận đã nhận được chuyển khoản?')) return;
+                                try {
+                                  await paymentAPI.updateStatus(activeOrder.payment_id!, 'Success');
+                                  const updated = await orderAPI.getAll();
+                                  setOrders(updated);
+                                } catch { alert('Lỗi xác nhận thanh toán'); }
+                              }}
+                              className="bg-green-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-green-700 transition-all"
+                            >
+                              Xác nhận đã nhận tiền
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sequential action buttons */}
+                    <div className="space-y-3">
+                      {NEXT_STATUS[activeOrder.status] && (
                         <button
-                          key={value}
-                          onClick={() => handleStatusChange(activeOrder.order_id, value as Order['status'])}
-                          className={`py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl border transition-all ${
-                            activeOrder.status === value 
-                              ? 'bg-brand-dark border-brand-dark text-white shadow-xl shadow-black/20 ring-4 ring-brand-dark/5' 
-                              : 'border-gray-100 text-gray-400 hover:border-brand-dark hover:text-brand-dark hover:bg-gray-50'
-                          }`}
+                          onClick={() => {
+                            if (!confirm(`Chuyển trạng thái sang "${STATUS_LABELS[NEXT_STATUS[activeOrder.status]]}"?`)) return;
+                            handleStatusChange(activeOrder.order_id, NEXT_STATUS[activeOrder.status] as Order['status']);
+                          }}
+                          className="w-full bg-brand-dark text-white py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all shadow-lg shadow-black/10 flex items-center justify-center gap-2"
                         >
-                          {label}
+                          <CheckCircle2 size={16} />
+                          {NEXT_STATUS_LABEL[activeOrder.status]}
                         </button>
-                      ))}
+                      )}
+                      {activeOrder.status !== 'Completed' && activeOrder.status !== 'Canceled' && (
+                        <button
+                          onClick={() => {
+                            if (!confirm('Bạn chắc chắn muốn hủy đơn hàng này?')) return;
+                            handleStatusChange(activeOrder.order_id, 'Canceled');
+                          }}
+                          className="w-full border-2 border-red-200 text-red-500 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                        >
+                          <AlertCircle size={16} />
+                          Hủy đơn hàng
+                        </button>
+                      )}
+                      {(activeOrder.status === 'Completed' || activeOrder.status === 'Canceled') && (
+                        <p className="text-center text-xs font-bold text-gray-400 uppercase tracking-widest py-4">
+                          Đơn hàng đã {activeOrder.status === 'Completed' ? 'hoàn thành' : 'bị hủy'}
+                        </p>
+                      )}
                     </div>
                   </section>
 

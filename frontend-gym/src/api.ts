@@ -141,6 +141,7 @@ export const voucherAPI = {
 // ============ PAYMENTS ============
 export const paymentAPI = {
   getByOrder: (orderId: number) => fetchAPI<any>(`/payments?order_id=${orderId}`),
+  updateStatus: (paymentId: number, status: string) => fetchAPI<any>(`/payments/${paymentId}`, { method: 'PUT', body: JSON.stringify({ status }) }),
 };
 
 // ============ SHIPPING ============
