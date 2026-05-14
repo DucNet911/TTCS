@@ -7,6 +7,7 @@ import { useWishlist } from '../WishlistContext';
 import { useAuth } from '../AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, Minus, Plus, Share2, Heart, ShieldCheck, Truck, RotateCcw, ZoomIn, ZoomOut, Star, MessageSquare, X } from 'lucide-react';
+import { ProductCard } from '../components/ProductCard';
 
 export const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -38,6 +39,7 @@ export const ProductDetail = () => {
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
   const [sizeGuideTab, setSizeGuideTab] = useState('ao'); // 'ao', 'quan', 'giay'
   const [sizeGuideUnit, setSizeGuideUnit] = useState('cm'); // 'cm', 'in'
+  const [similarProducts, setSimilarProducts] = useState<any[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -65,6 +67,16 @@ export const ProductDetail = () => {
       if (sizes.length > 0) setSelectedSize(sizes[0].name);
       if (colors.length > 0) setSelectedColor(colors[0].name);
       if (data.skus?.length > 0) setSelectedSku(data.skus[0]);
+      
+      productAPI.getAll().then(allProducts => {
+        const otherProducts = allProducts.filter((p: any) => p.product_id !== data.product_id);
+        const sameCategory = otherProducts.filter((p: any) => p.category_id === data.category_id);
+        const differentCategory = otherProducts.filter((p: any) => p.category_id !== data.category_id);
+        
+        const recommended = [...sameCategory, ...differentCategory].slice(0, 4);
+        setSimilarProducts(recommended);
+      }).catch(() => {});
+
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [id]);
@@ -563,6 +575,19 @@ export const ProductDetail = () => {
             )}
           </div>
         </div>
+
+        {/* Similar Products */}
+        {similarProducts.length > 0 && (
+          <div className="mt-24 pt-16 border-t border-gray-100">
+            <h2 className="text-[20px] font-black uppercase tracking-tighter mb-12 text-center text-brand-dark">Sản phẩm tương tự</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-8">
+              {similarProducts.map((p) => (
+                <ProductCard key={p.product_id} product={p} />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Size Guide Modal */}
         <AnimatePresence>
           {isSizeGuideOpen && (
