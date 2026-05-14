@@ -39,6 +39,7 @@ export interface Product {
   brand_name?: string;
   category_name?: string;
   primary_image?: string;
+  average_rating?: string | number;
 }
 
 export interface ProductImage {

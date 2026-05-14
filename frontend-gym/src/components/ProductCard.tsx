@@ -1,13 +1,11 @@
 import React from 'react';
 import { Product } from '../types';
-import { useCart } from '../CartContext';
 import { useWishlist } from '../WishlistContext';
-import { Plus, Heart } from 'lucide-react';
+import { Heart, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 
 export const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
-  const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const [isHovered, setIsHovered] = React.useState(false);
 
@@ -37,16 +35,6 @@ export const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
             </div>
           )}
           
-          <button 
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              addToCart({ product, quantity: 1 });
-            }}
-            className="absolute bottom-3 right-3 bg-white text-brand-dark p-2.5 rounded-full shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hover:bg-brand-dark hover:text-white z-10"
-          >
-            <Plus size={18} />
-          </button>
         </motion.div>
       </Link>
       
@@ -68,13 +56,21 @@ export const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
           </h3>
         </div>
         
-        <div className="flex flex-col">
-          <p className="text-[13px] text-gray-500 font-medium">
-            {product.brand_name || ''}
-          </p>
-          <p className="text-[13px] text-gray-500 font-medium">
-            {product.material?.split(' ')[0] || ''}
-          </p>
+        <div className="flex justify-between items-end">
+          <div className="flex flex-col">
+            <p className="text-[13px] text-gray-500 font-medium">
+              {product.brand_name || ''}
+            </p>
+            <p className="text-[13px] text-gray-500 font-medium">
+              {product.material?.split(' ')[0] || ''}
+            </p>
+          </div>
+          {Number(product.average_rating) > 0 && (
+            <div className="flex items-center gap-1 text-gray-500 mb-0.5">
+              <span className="text-[13px] font-bold">{Number(product.average_rating).toFixed(1)}</span>
+              <Star size={12} fill="currentColor" className="text-brand-accent" />
+            </div>
+          )}
         </div>
 
         <div className="pt-1">

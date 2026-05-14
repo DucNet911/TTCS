@@ -134,6 +134,7 @@ router.get('/:id/recommendations', async (req, res) => {
     const [rows] = await pool.query(
       `SELECT DISTINCT p.*, b.name AS brand_name, c.name AS category_name,
               (SELECT pi.image_url FROM PRODUCT_IMAGES pi WHERE pi.product_id = p.product_id AND pi.is_primary = TRUE LIMIT 1) AS primary_image,
+              (SELECT AVG(rating) FROM REVIEWS WHERE product_id = p.product_id) AS average_rating,
               GROUP_CONCAT(DISTINCT fg.name SEPARATOR ', ') AS matched_goals
        FROM PRODUCTS p
        JOIN PRODUCT_GOALS pg ON p.product_id = pg.product_id

@@ -8,7 +8,8 @@ router.get('/', async (req, res) => {
     const { gender, category_id, brand_id, include_deleted } = req.query;
     
     let sql = `SELECT p.*, b.name AS brand_name, c.name AS category_name,
-               (SELECT pi.image_url FROM PRODUCT_IMAGES pi WHERE pi.product_id = p.product_id AND pi.is_primary = TRUE LIMIT 1) AS primary_image
+               (SELECT pi.image_url FROM PRODUCT_IMAGES pi WHERE pi.product_id = p.product_id AND pi.is_primary = TRUE LIMIT 1) AS primary_image,
+               (SELECT AVG(rating) FROM REVIEWS WHERE product_id = p.product_id) AS average_rating
                FROM PRODUCTS p 
                LEFT JOIN BRANDS b ON p.brand_id = b.brand_id 
                LEFT JOIN CATEGORIES c ON p.category_id = c.category_id`;

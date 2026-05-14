@@ -25,6 +25,7 @@ export const Account = () => {
   const [userOrders, setUserOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState<'profile' | 'orders' | 'settings'>('profile');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [orderItemsMap, setOrderItemsMap] = useState<Record<number, any[]>>({});
 
   // State cho chỉnh sửa thông tin cá nhân
   const [editName, setEditName] = useState('');
@@ -63,7 +64,22 @@ export const Account = () => {
   useEffect(() => {
     if (user) {
       orderAPI.getAll({ customer_id: user.customer_id })
-        .then(setUserOrders)
+        .then(async (orders) => {
+          setUserOrders(orders);
+          
+          const itemsMap: Record<number, any[]> = {};
+          await Promise.all(
+            orders.map(async (order) => {
+              try {
+                const detail = await orderAPI.getById(order.order_id);
+                itemsMap[order.order_id] = detail.items || [];
+              } catch {
+                itemsMap[order.order_id] = [];
+              }
+            })
+          );
+          setOrderItemsMap(itemsMap);
+        })
         .catch(() => setUserOrders([]));
     }
   }, [user]);
@@ -79,8 +95,7 @@ export const Account = () => {
   }, [user]);
 
   const getOrderItems = (orderId: number): any[] => {
-    const order = userOrders.find(o => o.order_id === orderId);
-    return order?.items || [];
+    return orderItemsMap[orderId] || [];
   };
 
   const getStatusIcon = (status: Order['status']) => {

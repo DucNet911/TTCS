@@ -182,9 +182,16 @@ export const AdminOrders = () => {
   };
 
   const getOrderItems = (orderId: number): any[] => {
-    const order = orders.find(o => o.order_id === orderId);
-    return order?.items || [];
+    return orderItemsMap[orderId] || [];
   };
+
+  useEffect(() => {
+    if (selectedOrderId && !orderItemsMap[selectedOrderId]) {
+      orderAPI.getById(selectedOrderId).then(detail => {
+        setOrderItemsMap(prev => ({ ...prev, [selectedOrderId]: detail.items || [] }));
+      }).catch(() => {});
+    }
+  }, [selectedOrderId]);
 
   if (!isAdmin) {
     return <Navigate to="/account" />;
@@ -205,12 +212,22 @@ export const AdminOrders = () => {
 
   const activeOrder = orders.find(o => o.order_id === selectedOrderId);
 
-  const handlePrintInvoice = () => {
+  const handlePrintInvoice = async () => {
     if (!activeOrder) return;
+    
+    let orderItems = orderItemsMap[activeOrder.order_id];
+    if (!orderItems) {
+      try {
+        const detail = await orderAPI.getById(activeOrder.order_id);
+        orderItems = detail.items || [];
+        setOrderItemsMap(prev => ({ ...prev, [activeOrder.order_id]: orderItems }));
+      } catch {
+        orderItems = [];
+      }
+    }
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    
-    const orderItems = orderItemsMap[activeOrder.order_id] || [];
     
     const html = `
       <html>

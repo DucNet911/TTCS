@@ -6,7 +6,7 @@ import { useCart } from '../CartContext';
 import { useWishlist } from '../WishlistContext';
 import { useAuth } from '../AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronRight, Minus, Plus, Share2, Heart, ShieldCheck, Truck, RotateCcw, ZoomIn, ZoomOut, Star, MessageSquare } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Minus, Plus, Share2, Heart, ShieldCheck, Truck, RotateCcw, ZoomIn, ZoomOut, Star, MessageSquare, X } from 'lucide-react';
 
 export const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -14,7 +14,7 @@ export const ProductDetail = () => {
   const { cart, addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { user, isAuthenticated } = useAuth();
-  
+
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [images, setImages] = useState<any[]>([]);
@@ -35,6 +35,9 @@ export const ProductDetail = () => {
   const [isManualZoom, setIsManualZoom] = useState(false);
   const [newReview, setNewReview] = useState({ rating: 5, comment: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
+  const [sizeGuideTab, setSizeGuideTab] = useState('ao'); // 'ao', 'quan', 'giay'
+  const [sizeGuideUnit, setSizeGuideUnit] = useState('cm'); // 'cm', 'in'
 
   useEffect(() => {
     if (!id) return;
@@ -91,7 +94,7 @@ export const ProductDetail = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-black mb-4">KHÔNG TÌM THẤY SẢN PHẨM</h2>
-          <button 
+          <button
             onClick={() => navigate('/')}
             className="text-sm font-bold uppercase tracking-widest underline"
           >
@@ -102,7 +105,7 @@ export const ProductDetail = () => {
     );
   }
 
-  const averageRating = productReviews.length > 0 
+  const averageRating = productReviews.length > 0
     ? (productReviews.reduce((acc, r) => acc + Number(r.rating), 0) / productReviews.length).toFixed(1)
     : 0;
 
@@ -144,9 +147,9 @@ export const ProductDetail = () => {
 
   const handleAddToCart = () => {
     if (!selectedSku) return;
-    
+
     // Kiểm tra số lượng đã có trong giỏ hàng
-    const existingInCart = cart.find(item => 
+    const existingInCart = cart.find(item =>
       item.product.product_id === product.product_id &&
       item.size === selectedSize &&
       item.color === selectedColor
@@ -186,7 +189,7 @@ export const ProductDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           {/* Image Gallery */}
           <div className="lg:col-span-7 space-y-4">
-            <div 
+            <div
               onClick={() => setIsManualZoom(!isManualZoom)}
               onMouseMove={handleMouseMove}
               onMouseEnter={() => setIsZooming(true)}
@@ -220,10 +223,10 @@ export const ProductDetail = () => {
                   <span className="text-xs font-black uppercase tracking-widest text-gray-300">No Image Available</span>
                 </div>
               )}
-              
+
               {images.length > 1 && (
                 <div className="absolute inset-0 flex items-center justify-between px-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  <button 
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setActiveImageIndex(prev => (prev === 0 ? images.length - 1 : prev - 1));
@@ -232,7 +235,7 @@ export const ProductDetail = () => {
                   >
                     <ChevronLeft size={20} />
                   </button>
-                  <button 
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setActiveImageIndex(prev => (prev === images.length - 1 ? 0 : prev + 1));
@@ -247,7 +250,7 @@ export const ProductDetail = () => {
 
             <div className="grid grid-cols-5 gap-4">
               {images.length > 1 && images.map((img, idx) => (
-                <button 
+                <button
                   key={img.image_id}
                   onClick={() => setActiveImageIndex(idx)}
                   className={`aspect-[4/5] bg-brand-light overflow-hidden rounded-sm border-2 transition-all ${activeImageIndex === idx ? 'border-brand-dark' : 'border-transparent opacity-60 hover:opacity-100'}`}
@@ -284,7 +287,7 @@ export const ProductDetail = () => {
                 </div>
                 <div className="flex gap-2">
                   <button className="p-2 hover:bg-brand-light rounded-full transition-colors"><Share2 size={20} /></button>
-                  <button 
+                  <button
                     onClick={() => toggleWishlist(product)}
                     className={`p-2 hover:bg-brand-light rounded-full transition-colors ${isInWishlist(product.product_id) ? 'text-red-500' : 'text-brand-dark'}`}
                   >
@@ -292,7 +295,7 @@ export const ProductDetail = () => {
                   </button>
                 </div>
               </div>
-              
+
               <div className="flex items-baseline gap-4">
                 <span className="text-3xl font-black">
                   {formatPrice(selectedSku?.price || product.base_price)}
@@ -334,8 +337,8 @@ export const ProductDetail = () => {
                       onClick={() => setSelectedColor(color.name)}
                       className={`w-10 h-10 rounded-full border-2 p-1 transition-all ${selectedColor === color.name ? 'border-brand-dark' : 'border-transparent'}`}
                     >
-                      <div 
-                        className="w-full h-full rounded-full border border-gray-200" 
+                      <div
+                        className="w-full h-full rounded-full border border-gray-200"
                         style={{ backgroundColor: color.hex_code }}
                       />
                     </button>
@@ -348,7 +351,7 @@ export const ProductDetail = () => {
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-[11px] font-black uppercase tracking-widest">Kích cỡ: {selectedSize}</span>
-                    <button className="text-[10px] font-bold uppercase tracking-widest underline">Bảng size</button>
+                    <button onClick={() => setIsSizeGuideOpen(true)} className="text-[10px] font-bold uppercase tracking-widest underline">Bảng size</button>
                   </div>
                   <div className="grid grid-cols-4 gap-2">
                     {availableSizes.map(size => {
@@ -358,13 +361,12 @@ export const ProductDetail = () => {
                           key={size.size_id}
                           disabled={!isAvailable}
                           onClick={() => setSelectedSize(size.name)}
-                          className={`py-3 text-xs font-black uppercase tracking-widest border-2 transition-all ${
-                            selectedSize === size.name 
-                              ? 'border-brand-dark bg-brand-dark text-white' 
-                              : isAvailable 
-                                ? 'border-gray-100 hover:border-brand-dark' 
-                                : 'border-gray-50 text-gray-300 cursor-not-allowed'
-                          }`}
+                          className={`py-3 text-xs font-black uppercase tracking-widest border-2 transition-all ${selectedSize === size.name
+                            ? 'border-brand-dark bg-brand-dark text-white'
+                            : isAvailable
+                              ? 'border-gray-100 hover:border-brand-dark'
+                              : 'border-gray-50 text-gray-300 cursor-not-allowed'
+                            }`}
                         >
                           {size.name}
                         </button>
@@ -378,14 +380,14 @@ export const ProductDetail = () => {
               <div className="space-y-3">
                 <span className="text-[11px] font-black uppercase tracking-widest">Số lượng</span>
                 <div className="flex items-center w-32 border-2 border-gray-100 rounded-sm">
-                  <button 
+                  <button
                     onClick={() => setQuantity(q => Math.max(1, q - 1))}
                     className="p-3 hover:bg-brand-light transition-colors"
                   >
                     <Minus size={14} />
                   </button>
                   <span className="flex-1 text-center font-black text-sm">{quantity}</span>
-                  <button 
+                  <button
                     onClick={() => setQuantity(q => q + 1)}
                     className="p-3 hover:bg-brand-light transition-colors"
                   >
@@ -397,7 +399,7 @@ export const ProductDetail = () => {
 
             {/* Actions */}
             <div className="space-y-3 pt-4">
-              <button 
+              <button
                 onClick={handleAddToCart}
                 disabled={!selectedSku || selectedSku.stock === 0}
                 className="w-full bg-brand-dark text-white py-5 font-black uppercase text-sm tracking-[0.2em] hover:bg-gray-800 transition-all disabled:bg-gray-200 disabled:cursor-not-allowed"
@@ -457,11 +459,11 @@ export const ProductDetail = () => {
               <h3 className="text-[14px] font-black uppercase tracking-tighter">Mô tả chi tiết</h3>
               <div className="prose prose-sm max-w-none text-gray-600 font-medium leading-relaxed">
                 <p>
-                  Sản phẩm {product.name} được thiết kế đặc biệt để mang lại hiệu suất tối ưu. 
+                  Sản phẩm {product.name} được thiết kế đặc biệt để mang lại hiệu suất tối ưu.
                   Với chất liệu {product.material}, sản phẩm không chỉ bền bỉ mà còn mang lại sự thoải mái tuyệt đối.
                 </p>
                 <p>
-                  Công nghệ tiên tiến từ {brand?.name} giúp kiểm soát độ ẩm và nhiệt độ cơ thể, cho phép bạn tập trung hoàn toàn vào mục tiêu của mình. 
+                  Công nghệ tiên tiến từ {brand?.name} giúp kiểm soát độ ẩm và nhiệt độ cơ thể, cho phép bạn tập trung hoàn toàn vào mục tiêu của mình.
                   Dù bạn đang tập trung vào {goals.map(g => g?.goal_name).filter(Boolean).join(', ')}, đây là sự lựa chọn hoàn hảo.
                 </p>
               </div>
@@ -519,7 +521,7 @@ export const ProductDetail = () => {
               ) : (
                 <div className="bg-brand-light p-6 rounded-sm text-center">
                   <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Đăng nhập để viết nhận xét</p>
-                  <button 
+                  <button
                     onClick={() => navigate('/account')}
                     className="text-xs font-black uppercase tracking-widest underline underline-offset-4"
                   >
@@ -561,6 +563,168 @@ export const ProductDetail = () => {
             )}
           </div>
         </div>
+        {/* Size Guide Modal */}
+        <AnimatePresence>
+          {isSizeGuideOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsSizeGuideOpen(false)}
+                className="absolute inset-0 bg-black/60"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="relative bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-sm shadow-2xl"
+              >
+                <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                  <h3 className="text-sm font-black uppercase tracking-widest flex-1 text-center">BẢNG SIZE</h3>
+                  <button onClick={() => setIsSizeGuideOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors absolute right-6">
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="p-6">
+                  <div className="flex justify-center mb-6">
+                    <h4 className="text-xl font-black uppercase tracking-tighter">CHỌN SIZE CỦA BẠN</h4>
+                  </div>
+
+                  <div className="flex justify-center mb-8 gap-4">
+                    <div className="bg-gray-100 p-1 rounded-full flex">
+                      <button
+                        onClick={() => setSizeGuideUnit('in')}
+                        className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-colors ${sizeGuideUnit === 'in' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-800'}`}
+                      >
+                        IN
+                      </button>
+                      <button
+                        onClick={() => setSizeGuideUnit('cm')}
+                        className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-colors ${sizeGuideUnit === 'cm' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-800'}`}
+                      >
+                        CM
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center mb-8 gap-4 border-b border-gray-100">
+                    <button
+                      onClick={() => setSizeGuideTab('ao')}
+                      className={`pb-2 px-4 text-xs font-black uppercase tracking-widest border-b-2 transition-colors ${sizeGuideTab === 'ao' ? 'border-brand-dark text-brand-dark' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                    >
+                      ÁO
+                    </button>
+                    <button
+                      onClick={() => setSizeGuideTab('quan')}
+                      className={`pb-2 px-4 text-xs font-black uppercase tracking-widest border-b-2 transition-colors ${sizeGuideTab === 'quan' ? 'border-brand-dark text-brand-dark' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                    >
+                      QUẦN
+                    </button>
+                    <button
+                      onClick={() => setSizeGuideTab('giay')}
+                      className={`pb-2 px-4 text-xs font-black uppercase tracking-widest border-b-2 transition-colors ${sizeGuideTab === 'giay' ? 'border-brand-dark text-brand-dark' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                    >
+                      GIÀY
+                    </button>
+                  </div>
+
+                  {sizeGuideTab === 'ao' && (
+                    <table className="w-full text-center text-sm font-medium">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="py-4 text-xs font-black uppercase tracking-widest text-left pl-4 w-1/3">SIZE</th>
+                          <th className="py-4 text-xs font-black uppercase tracking-widest w-1/3">VÒNG NGỰC</th>
+                          <th className="py-4 text-xs font-black uppercase tracking-widest pr-4 w-1/3">VÒNG EO</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { size: 'XS', chest: 94, waist: 75 },
+                          { size: 'S', chest: 99, waist: 80 },
+                          { size: 'M', chest: 104, waist: 85 },
+                          { size: 'L', chest: 109, waist: 90 },
+                          { size: 'XL', chest: 114, waist: 95 },
+                          { size: 'XXL', chest: 119, waist: 100 },
+                          { size: 'XXXL', chest: 124, waist: 105 },
+                        ].map((row, idx) => (
+                          <tr key={row.size} className={idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                            <td className="py-4 font-black pl-4 text-left">{row.size}</td>
+                            <td className="py-4">{sizeGuideUnit === 'cm' ? row.chest : (row.chest / 2.54).toFixed(1)}</td>
+                            <td className="py-4 pr-4">{sizeGuideUnit === 'cm' ? row.waist : (row.waist / 2.54).toFixed(1)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+
+                  {sizeGuideTab === 'quan' && (
+                    <table className="w-full text-center text-sm font-medium">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="py-4 text-xs font-black uppercase tracking-widest text-left pl-4 w-1/3">SIZE</th>
+                          <th className="py-4 text-xs font-black uppercase tracking-widest w-1/3">VÒNG EO</th>
+                          <th className="py-4 text-xs font-black uppercase tracking-widest pr-4 w-1/3">VÒNG MÔNG</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { size: 'XS', waist: 71, hips: 86 },
+                          { size: 'S', waist: 76, hips: 91 },
+                          { size: 'M', waist: 81, hips: 96 },
+                          { size: 'L', waist: 86, hips: 101 },
+                          { size: 'XL', waist: 91, hips: 106 },
+                          { size: 'XXL', waist: 96, hips: 111 },
+                          { size: 'XXXL', waist: 101, hips: 116 },
+                        ].map((row, idx) => (
+                          <tr key={row.size} className={idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                            <td className="py-4 font-black pl-4 text-left">{row.size}</td>
+                            <td className="py-4">{sizeGuideUnit === 'cm' ? row.waist : (row.waist / 2.54).toFixed(1)}</td>
+                            <td className="py-4 pr-4">{sizeGuideUnit === 'cm' ? row.hips : (row.hips / 2.54).toFixed(1)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+
+                  {sizeGuideTab === 'giay' && (
+                    <table className="w-full text-center text-sm font-medium">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="py-4 text-xs font-black uppercase tracking-widest text-left pl-4 w-1/3">SIZE CHÂU Á/ÂU</th>
+                          <th className="py-4 text-xs font-black uppercase tracking-widest w-1/3">SIZE MỸ</th>
+                          <th className="py-4 text-xs font-black uppercase tracking-widest pr-4 w-1/3">DÀI CHÂN</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { eu: '36', us: '4', cm: 22.5 },
+                          { eu: '37', us: '5', cm: 23.5 },
+                          { eu: '38', us: '6', cm: 24 },
+                          { eu: '39', us: '7', cm: 25 },
+                          { eu: '40', us: '7.5', cm: 25.5 },
+                          { eu: '41', us: '8.5', cm: 26.5 },
+                          { eu: '42', us: '9', cm: 27 },
+                          { eu: '43', us: '10', cm: 28 },
+                          { eu: '44', us: '10.5', cm: 28.5 },
+                          { eu: '45', us: '11.5', cm: 29.5 },
+                        ].map((row, idx) => (
+                          <tr key={row.eu} className={idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                            <td className="py-4 font-black pl-4 text-left">{row.eu}</td>
+                            <td className="py-4">{row.us}</td>
+                            <td className="py-4 pr-4">{sizeGuideUnit === 'cm' ? row.cm : (row.cm / 2.54).toFixed(1)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
