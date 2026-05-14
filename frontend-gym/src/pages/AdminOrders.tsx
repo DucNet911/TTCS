@@ -1001,14 +1001,14 @@ export const AdminOrders = () => {
                       {getOrderItems(activeOrder.order_id).map((item, i) => (
                         <div key={i} className="flex gap-6 items-center group">
                           <div className="w-20 h-24 bg-brand-light rounded-2xl overflow-hidden flex-shrink-0 shadow-sm">
-                            {item.image && <img src={item.image} alt="" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" referrerPolicy="no-referrer" />}
+                            {item.image_url && <img src={item.image_url} alt="" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" referrerPolicy="no-referrer" />}
                           </div>
                           <div className="flex-1">
-                            <h4 className="text-lg font-black uppercase tracking-tight text-brand-dark">{item.product?.name}</h4>
+                            <h4 className="text-lg font-black uppercase tracking-tight text-brand-dark">{item.product_name}</h4>
                             <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em] mt-1 space-x-2">
-                              <span>Kích cỡ: {item.size?.name}</span>
+                              <span>Kích cỡ: {item.size_name || 'N/A'}</span>
                               <span className="opacity-20">|</span>
-                              <span>Màu: {item.color?.name}</span>
+                              <span>Màu: {item.color_name || 'N/A'}</span>
                               <span className="opacity-20">|</span>
                               <span className="text-brand-dark">x{item.quantity}</span>
                             </p>

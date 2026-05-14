@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Product } from './types';
 import { useAuth } from './AuthContext';
+import { useToast } from './ToastContext';
 import { wishlistAPI } from './api';
 
 interface WishlistContextType {
@@ -19,6 +20,7 @@ const WishlistContext = createContext<WishlistContextType | undefined>(undefined
 
 export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const { addToast } = useToast();
   const [wishlist, setWishlist] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -71,12 +73,14 @@ export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (prev.find(item => item.product_id === product.product_id)) return prev;
         return [...prev, product];
       });
+      addToast('Đã thêm vào mục yêu thích');
       return;
     }
 
     try {
       await wishlistAPI.addItem(user.customer_id, product.product_id);
       await loadWishlistFromDB();
+      addToast('Đã thêm vào mục yêu thích');
     } catch (err: any) {
       // 409 = đã có trong wishlist → bỏ qua
       if (err?.message?.includes('409')) return;
@@ -88,6 +92,7 @@ export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const removeFromWishlist = async (productId: number) => {
     if (!user || !user.customer_id) {
       setWishlist(prev => prev.filter(item => item.product_id !== productId));
+      addToast('Đã bỏ khỏi mục yêu thích', 'info');
       return;
     }
 
@@ -97,6 +102,7 @@ export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         await wishlistAPI.removeItem(itemId);
         delete wishlistItemMap[productId];
         await loadWishlistFromDB();
+        addToast('Đã bỏ khỏi mục yêu thích', 'info');
       }
     } catch (err) {
       console.error('Lỗi xóa khỏi wishlist:', err);

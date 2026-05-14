@@ -61,8 +61,8 @@ export const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
             <p className="text-[13px] text-gray-500 font-medium">
               {product.brand_name || ''}
             </p>
-            <p className="text-[13px] text-gray-500 font-medium">
-              {product.material?.split(' ')[0] || ''}
+            <p className="text-[13px] text-gray-500 font-medium break-words">
+              {product.material || ''}
             </p>
           </div>
           {Number(product.average_rating) > 0 && (

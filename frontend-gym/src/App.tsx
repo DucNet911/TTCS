@@ -5,6 +5,7 @@ import { CartDrawer } from './components/CartDrawer';
 import { CartProvider } from './CartContext';
 import { WishlistProvider } from './WishlistContext';
 import { AuthProvider, useAuth } from './AuthContext';
+import { ToastProvider } from './ToastContext';
 import { Home } from './pages/Home';
 import { Women } from './pages/Women';
 import { Men } from './pages/Men';
@@ -131,13 +132,15 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <WishlistProvider>
-        <CartProvider>
-          <Router>
-            <AppContent />
-          </Router>
-        </CartProvider>
-      </WishlistProvider>
+      <ToastProvider>
+        <WishlistProvider>
+          <CartProvider>
+            <Router>
+              <AppContent />
+            </Router>
+          </CartProvider>
+        </WishlistProvider>
+      </ToastProvider>
     </AuthProvider>
   );
 }

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Product, ProductSKU } from './types';
 import { useAuth } from './AuthContext';
+import { useToast } from './ToastContext';
 import { cartAPI } from './api';
 
 interface CartItemExtended {
@@ -28,6 +29,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const { addToast } = useToast();
   const [cart, setCart] = useState<CartItemExtended[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -97,6 +99,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         return [...prev, newItem];
       });
+      addToast('Đã thêm sản phẩm vào giỏ hàng');
       return;
     }
 
@@ -108,6 +111,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       await cartAPI.addItem(user.customer_id, newItem.sku.sku_id, newItem.quantity);
       await loadCartFromDB(); // Reload từ DB
+      addToast('Đã thêm sản phẩm vào giỏ hàng');
     } catch (err) {
       console.error('Lỗi thêm vào giỏ hàng:', err);
     }
