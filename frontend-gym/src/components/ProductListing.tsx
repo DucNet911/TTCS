@@ -56,9 +56,9 @@ export const ProductListing = ({
   initialProducts, 
   title, 
   subtitle,
-  hideGenderFilter = false,
+  hideGenderFilter = true,
   hideSizeFilter = false,
-  hideColorFilter = false
+  hideColorFilter = true
 }: ProductListingProps) => {
   const [sortBy, setSortBy] = useState<SortOption>('relevancy');
   const [selectedGenders, setSelectedGenders] = useState<string[]>([]);

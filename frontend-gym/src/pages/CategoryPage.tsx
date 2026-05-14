@@ -125,9 +125,6 @@ export const CategoryPage = () => {
       <ProductListing 
         initialProducts={products} 
         title={`Kết quả cho "${item}"`} 
-        hideGenderFilter={gender !== 'accessories'}
-        hideSizeFilter={gender === 'accessories'}
-        hideColorFilter={gender === 'men' || gender === 'women'}
       />
     </div>
   );
